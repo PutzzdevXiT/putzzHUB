@@ -9,6 +9,17 @@ local LocalPlayer = Players.LocalPlayer
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game.CoreGui
 
+-- BUTTON OPEN
+local Open = Instance.new("TextButton")
+Open.Parent = ScreenGui
+Open.Size = UDim2.new(0,50,0,50)
+Open.Position = UDim2.new(0,20,0.4,0)
+Open.Text = "P"
+Open.BackgroundColor3 = Color3.fromRGB(0,170,255)
+Open.TextColor3 = Color3.new(1,1,1)
+Open.TextScaled = true
+
+-- MAIN MENU
 local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
 MainFrame.Size = UDim2.new(0,220,0,300)
@@ -16,6 +27,12 @@ MainFrame.Position = UDim2.new(0,100,0,100)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
 MainFrame.Active = true
 MainFrame.Draggable = true
+MainFrame.Visible = true
+
+-- OPEN / CLOSE MENU
+Open.MouseButton1Click:Connect(function()
+	MainFrame.Visible = not MainFrame.Visible
+end)
 
 -- TITLE
 local Title = Instance.new("TextLabel")
@@ -26,12 +43,12 @@ Title.BackgroundTransparency = 1
 Title.TextColor3 = Color3.fromRGB(0,200,255)
 Title.TextScaled = true
 
--- Scroll
+-- SCROLL
 local Scroll = Instance.new("ScrollingFrame")
 Scroll.Parent = MainFrame
 Scroll.Position = UDim2.new(0,0,0,30)
 Scroll.Size = UDim2.new(1,0,1,-30)
-Scroll.CanvasSize = UDim2.new(0,0,0,500)
+Scroll.CanvasSize = UDim2.new(0,0,0,400)
 Scroll.ScrollBarThickness = 6
 Scroll.BackgroundTransparency = 1
 
@@ -39,7 +56,7 @@ local Layout = Instance.new("UIListLayout")
 Layout.Parent = Scroll
 Layout.Padding = UDim.new(0,5)
 
--- Button maker
+-- BUTTON MAKER
 local function makeButton(text)
 	local b = Instance.new("TextButton")
 	b.Parent = Scroll
@@ -52,7 +69,6 @@ end
 
 local espBtn = makeButton("ESP PLAYER")
 local lineBtn = makeButton("ESP LINE")
-local skeletonBtn = makeButton("SKELETON OFF")
 local flyBtn = makeButton("FLY")
 local speedBtn = makeButton("SPEED OFF")
 local noclipBtn = makeButton("NOCLIP OFF")
