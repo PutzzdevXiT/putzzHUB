@@ -1,4 +1,4 @@
---[[ PUTZZHUB MOBILE FULL VERSION ]]
+--[[ PUTZZHUB MOBILE FULL VERSION + ESP ]]
 
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
@@ -7,7 +7,7 @@ local root = char:WaitForChild("HumanoidRootPart")
 
 local flying = false
 local speedOn = false
-local holoOn = false
+local espOn = false
 local flySpeed = 60
 
 -- GUI
@@ -30,7 +30,7 @@ title.BackgroundColor3 = Color3.fromRGB(20,20,20)
 title.Text = "Putzzdev-HUB"
 title.TextColor3 = Color3.fromRGB(255,255,0)
 
--- OPEN CLOSE BUTTON
+-- OPEN CLOSE
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Parent = gui
 toggleBtn.Size = UDim2.new(0,60,0,30)
@@ -60,14 +60,14 @@ btnSpeed.Text = "Speed OFF"
 btnSpeed.Size = UDim2.new(0.8,0,0,30)
 btnSpeed.Position = UDim2.new(0.1,0,0.5,0)
 
--- HOLOGRAM BUTTON
-local btnHolo = Instance.new("TextButton")
-btnHolo.Parent = frame
-btnHolo.Text = "Hologram Player OFF"
-btnHolo.Size = UDim2.new(0.8,0,0,30)
-btnHolo.Position = UDim2.new(0.1,0,0.75,0)
+-- ESP BUTTON
+local btnESP = Instance.new("TextButton")
+btnESP.Parent = frame
+btnESP.Text = "ESP OFF"
+btnESP.Size = UDim2.new(0.8,0,0,30)
+btnESP.Position = UDim2.new(0.1,0,0.75,0)
 
--- FLY SYSTEM (Analog)
+-- FLY SYSTEM
 local bv
 local runService = game:GetService("RunService")
 
@@ -123,55 +123,60 @@ btnSpeed.MouseButton1Click:Connect(function()
 
 end)
 
--- HOLOGRAM PLAYER SYSTEM
-btnHolo.MouseButton1Click:Connect(function()
+-- ESP SYSTEM
+local espFolder = Instance.new("Folder", gui)
 
-	holoOn = not holoOn
+local function createESP(plr)
 
-	if holoOn then
+	if plr == player then return end
 
-		btnHolo.Text = "Hologram Player ON"
+	local c = plr.Character
+	if not c then return end
+
+	local head = c:FindFirstChild("Head")
+	if not head then return end
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "ESP"
+	billboard.Adornee = head
+	billboard.Size = UDim2.new(4,0,5,0)
+	billboard.AlwaysOnTop = true
+	billboard.Parent = espFolder
+
+	local box = Instance.new("Frame")
+	box.Size = UDim2.new(1,0,1,0)
+	box.BackgroundTransparency = 1
+	box.BorderSizePixel = 2
+	box.BorderColor3 = Color3.fromRGB(255,0,0)
+	box.Parent = billboard
+
+	local name = Instance.new("TextLabel")
+	name.Size = UDim2.new(1,0,0.2,0)
+	name.Position = UDim2.new(0,0,-0.2,0)
+	name.BackgroundTransparency = 1
+	name.Text = plr.Name
+	name.TextColor3 = Color3.fromRGB(255,255,255)
+	name.TextScaled = true
+	name.Parent = billboard
+
+end
+
+btnESP.MouseButton1Click:Connect(function()
+
+	espOn = not espOn
+
+	if espOn then
+
+		btnESP.Text = "ESP ON"
 
 		for _,plr in pairs(game.Players:GetPlayers()) do
-			if plr ~= player then
-
-				local c = plr.Character
-				if c then
-
-					for _,v in pairs(c:GetDescendants()) do
-						if v:IsA("BasePart") then
-							v.Material = Enum.Material.Neon
-							v.Transparency = 0.5
-							v.Color = Color3.fromRGB(0,255,255)
-						end
-					end
-
-				end
-
-			end
+			createESP(plr)
 		end
 
 	else
 
-		btnHolo.Text = "Hologram Player OFF"
-
-		for _,plr in pairs(game.Players:GetPlayers()) do
-			if plr ~= player then
-
-				local c = plr.Character
-				if c then
-
-					for _,v in pairs(c:GetDescendants()) do
-						if v:IsA("BasePart") then
-							v.Material = Enum.Material.Plastic
-							v.Transparency = 0
-						end
-					end
-
-				end
-
-			end
-		end
+		btnESP.Text = "ESP OFF"
+		espFolder:ClearAllChildren()
 
 	end
 
