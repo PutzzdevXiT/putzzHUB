@@ -8,6 +8,34 @@ local LocalPlayer = Players.LocalPlayer
 -- GUI
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 
+   local MainFrame = Instance.new("Frame")
+MainFrame.Parent = ScreenGui
+MainFrame.Size = UDim2.new(0,200,0,250)
+MainFrame.Position = UDim2.new(0,100,0,100)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+-- Scroll Frame
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Parent = MainFrame
+Scroll.Size = UDim2.new(1,0,1,0)
+Scroll.CanvasSize = UDim2.new(0,0,0,500)
+Scroll.ScrollBarThickness = 6
+Scroll.BackgroundTransparency = 1
+
+-- Layout
+local Layout = Instance.new("UIListLayout")
+Layout.Parent = Scroll
+Layout.Padding = UDim.new(0,5)
+
+local ESPButton = Instance.new("TextButton")
+ESPButton.Parent = Scroll
+ESPButton.Size = UDim2.new(1,0,0,40)
+ESPButton.Text = "ESP ON/OFF"
+ESPButton.BackgroundColor3 = Color3.fromRGB(50,50,50)
+ESPButton.TextColor3 = Color3.new(1,1,1)
+
 local Open = Instance.new("TextButton")
 Open.Parent = ScreenGui
 Open.Size = UDim2.new(0,50,0,50)
@@ -54,10 +82,12 @@ local lineBtn = createButton("ESP LINE",90)
 local flyBtn = createButton("FLY",140)
 local speedBtn = createButton("SPEED",190)
 local skeletonBtn = createButton("SKELETON",190)
+local noclipBtn = createButton("NOCLIP OFF",190)
 
 -- ESP
 local espEnabled = false
 local lineEnabled = false
+local skeletonEnabled = false
 local ESPTable = {}
 
 local function createESP(player)
@@ -282,3 +312,30 @@ end)
 table.insert(skeletonLines,line)
 
 end
+
+-- NOCLIP
+local noclipEnabled = false
+
+noclipBtn.MouseButton1Click:Connect(function()
+
+noclipEnabled = not noclipEnabled
+
+if noclipEnabled then
+    noclipBtn.Text = "NOCLIP ON"
+else
+    noclipBtn.Text = "NOCLIP OFF"
+end
+
+end)
+
+RunService.Stepped:Connect(function()
+
+if noclipEnabled and LocalPlayer.Character then
+    for _,v in pairs(LocalPlayer.Character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = false
+        end
+    end
+end
+
+end)
