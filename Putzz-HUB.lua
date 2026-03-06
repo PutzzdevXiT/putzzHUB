@@ -1,5 +1,11 @@
---// PUTZZ HUB
---// Logo Button
+--// PUTZZDEV HUB
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- GUI
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 
 local Open = Instance.new("TextButton")
@@ -13,7 +19,7 @@ Open.TextScaled = true
 
 local Frame = Instance.new("Frame")
 Frame.Parent = ScreenGui
-Frame.Size = UDim2.new(0,180,0,200)
+Frame.Size = UDim2.new(0,200,0,220)
 Frame.Position = UDim2.new(0,80,0.35,0)
 Frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
 Frame.Visible = false
@@ -22,26 +28,37 @@ Open.MouseButton1Click:Connect(function()
 Frame.Visible = not Frame.Visible
 end)
 
---// Buttons
+-- TITLE
+local Title = Instance.new("TextLabel")
+Title.Parent = Frame
+Title.Size = UDim2.new(1,0,0,35)
+Title.BackgroundTransparency = 1
+Title.Text = "Putzzdev-HUB"
+Title.TextColor3 = Color3.fromRGB(0,200,255)
+Title.TextScaled = true
+
+-- BUTTON CREATOR
 local function createButton(text,y)
 local b = Instance.new("TextButton")
 b.Parent = Frame
-b.Size = UDim2.new(1,0,0,40)
-b.Position = UDim2.new(0,0,0,y)
+b.Size = UDim2.new(1,-10,0,40)
+b.Position = UDim2.new(0,5,0,y)
 b.Text = text
 b.BackgroundColor3 = Color3.fromRGB(40,40,40)
 b.TextColor3 = Color3.new(1,1,1)
 return b
 end
 
-local espBtn = createButton("ESP PLAYER",0)
-local flyBtn = createButton("FLY",45)
+local espBtn = createButton("ESP PLAYER",40)
+local flyBtn = createButton("FLY",90)
 
---// ESP
+-- ESP
 local espEnabled = false
+local ESPTable = {}
 
 local function createESP(player)
-if player == game.Players.LocalPlayer then return end
+
+if player == LocalPlayer then return end
 
 local box = Drawing.new("Square")
 box.Thickness = 2
@@ -60,7 +77,10 @@ dist.Color = Color3.new(1,1,1)
 dist.Center = true
 dist.Outline = true
 
-game:GetService("RunService").RenderStepped:Connect(function()
+ESPTable[player] = {box,name,dist}
+
+RunService.RenderStepped:Connect(function()
+
 if not espEnabled then
 box.Visible = false
 name.Visible = false
@@ -69,26 +89,35 @@ return
 end
 
 local char = player.Character
-local hrp = char and char:FindFirstChild("HumanoidRootPart")
+if char and char:FindFirstChild("HumanoidRootPart") then
 
-if hrp then
-local pos,onscreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+local hrp = char.HumanoidRootPart
+local head = char:FindFirstChild("Head")
 
-if onscreen then
-local scale = 3000/(pos.Z)
+local pos,visible = Camera:WorldToViewportPoint(hrp.Position)
 
-box.Size = Vector2.new(40*scale,60*scale)
-box.Position = Vector2.new(pos.X - box.Size.X/2,pos.Y - box.Size.Y/2)
+if visible then
+
+local top = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
+local bottom = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
+
+local height = math.abs(top.Y - bottom.Y)
+local width = height / 2
+
+box.Size = Vector2.new(width,height)
+box.Position = Vector2.new(pos.X - width/2, top.Y)
+
 box.Visible = true
 
-name.Position = Vector2.new(pos.X,pos.Y - 30)
+name.Position = Vector2.new(pos.X, top.Y - 16)
 name.Text = player.Name
 name.Visible = true
 
-local distance = (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
-dist.Position = Vector2.new(pos.X,pos.Y + 30)
+local distance = (LocalPlayer.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+dist.Position = Vector2.new(pos.X, bottom.Y + 2)
 dist.Text = math.floor(distance).."m"
 dist.Visible = true
+
 else
 box.Visible = false
 name.Visible = false
@@ -96,25 +125,22 @@ dist.Visible = false
 end
 end
 end)
+
 end
 
-for _,p in pairs(game.Players:GetPlayers()) do
+for _,p in pairs(Players:GetPlayers()) do
 createESP(p)
 end
 
-game.Players.PlayerAdded:Connect(createESP)
+Players.PlayerAdded:Connect(createESP)
 
 espBtn.MouseButton1Click:Connect(function()
 espEnabled = not espEnabled
 end)
 
---// FLY
+-- FLY
 local fly = false
 local speed = 60
-
-local UIS = game:GetService("UserInputService")
-local Run = game:GetService("RunService")
-
 local bv
 local bg
 
@@ -122,7 +148,7 @@ flyBtn.MouseButton1Click:Connect(function()
 
 fly = not fly
 
-local char = game.Players.LocalPlayer.Character
+local char = LocalPlayer.Character
 local hrp = char:WaitForChild("HumanoidRootPart")
 
 if fly then
@@ -135,7 +161,7 @@ bg = Instance.new("BodyGyro")
 bg.MaxTorque = Vector3.new(9e9,9e9,9e9)
 bg.Parent = hrp
 
-Run.RenderStepped:Connect(function()
+RunService.RenderStepped:Connect(function()
 
 if fly then
 local cam = workspace.CurrentCamera
