@@ -19,7 +19,7 @@ Open.TextScaled = true
 
 local Frame = Instance.new("Frame")
 Frame.Parent = ScreenGui
-Frame.Size = UDim2.new(0,200,0,220)
+Frame.Size = UDim2.new(0,200,0,260)
 Frame.Position = UDim2.new(0,80,0.35,0)
 Frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
 Frame.Visible = false
@@ -50,11 +50,14 @@ return b
 end
 
 local espBtn = createButton("ESP PLAYER",40)
-local flyBtn = createButton("FLY",90)
-local speedBtn =
-createButton("SPEED",140)
+local lineBtn = createButton("ESP LINE",90)
+local flyBtn = createButton("FLY",140)
+local speedBtn = createButton("SPEED",140)
+
+
 -- ESP
 local espEnabled = false
+local lineEnabled = false
 local ESPTable = {}
 
 local function createESP(player)
@@ -78,14 +81,20 @@ dist.Color = Color3.new(1,1,1)
 dist.Center = true
 dist.Outline = true
 
-ESPTable[player] = {box,name,dist}
+-- ESP LINE
+local line = Drawing.new("Line")
+line.Thickness = 1
+line.Color = Color3.fromRGB(255,255,255)
+
+ESPTable[player] = {box,name,dist,line}
 
 RunService.RenderStepped:Connect(function()
 
-if not espEnabled then
+if not espEnabled and not lineEnabled then
 box.Visible = false
 name.Visible = false
 dist.Visible = false
+line.Visible = false
 return
 end
 
@@ -105,9 +114,10 @@ local bottom = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
 local height = math.abs(top.Y - bottom.Y)
 local width = height / 2
 
+-- BOX
+if espEnabled then
 box.Size = Vector2.new(width,height)
 box.Position = Vector2.new(pos.X - width/2, top.Y)
-
 box.Visible = true
 
 name.Position = Vector2.new(pos.X, top.Y - 16)
@@ -118,11 +128,26 @@ local distance = (LocalPlayer.Character.HumanoidRootPart.Position - hrp.Position
 dist.Position = Vector2.new(pos.X, bottom.Y + 2)
 dist.Text = math.floor(distance).."m"
 dist.Visible = true
+else
+box.Visible = false
+name.Visible = false
+dist.Visible = false
+end
+
+-- LINE
+if lineEnabled then
+line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+line.To = Vector2.new(pos.X,pos.Y)
+line.Visible = true
+else
+line.Visible = false
+end
 
 else
 box.Visible = false
 name.Visible = false
 dist.Visible = false
+line.Visible = false
 end
 end
 end)
@@ -137,6 +162,10 @@ Players.PlayerAdded:Connect(createESP)
 
 espBtn.MouseButton1Click:Connect(function()
 espEnabled = not espEnabled
+end)
+
+lineBtn.MouseButton1Click:Connect(function()
+lineEnabled = not lineEnabled
 end)
 
 -- FLY
@@ -180,10 +209,11 @@ if bg then bg:Destroy() end
 end
 
 end)
+
 -- SPEED
 local speedEnabled = false
 local normalSpeed = 16
-local fastSpeed = 200
+local fastSpeed = 60
 
 speedBtn.MouseButton1Click:Connect(function()
 
@@ -201,77 +231,4 @@ if humanoid then
 	end
 end
 
-end)
-
--- ESP LINE / TRACER
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
-
-local espLineOn = true
-local lines = {}
-
-local function createTracer(plr)
-
-    if plr == player then return end
-
-    local line = Drawing.new("Line")
-    line.Color = Color3.fromRGB(255,255,255)
-    line.Thickness = 1.5
-    line.Transparency = 1
-    line.Visible = false
-
-    lines[plr] = line
-
-    RunService.RenderStepped:Connect(function()
-
-        if not espLineOn then
-            line.Visible = false
-            return
-        end
-
-        if plr.Character
-        and plr.Character:FindFirstChild("HumanoidRootPart")
-        and player.Character
-        and player.Character:FindFirstChild("HumanoidRootPart") then
-
-            local root = plr.Character.HumanoidRootPart
-            local pos, visible = camera:WorldToViewportPoint(root.Position)
-
-            if visible then
-
-                local myPos = camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-
-                line.From = Vector2.new(myPos.X, myPos.Y)
-                line.To = Vector2.new(pos.X, pos.Y)
-                line.Visible = true
-
-            else
-                line.Visible = false
-            end
-
-        else
-            line.Visible = false
-        end
-
-    end)
-
-end
-
--- buat tracer untuk player yang ada
-for _,plr in pairs(Players:GetPlayers()) do
-    createTracer(plr)
-end
-
--- player baru
-Players.PlayerAdded:Connect(createTracer)
-
--- player keluar
-Players.PlayerRemoving:Connect(function(plr)
-    if lines[plr] then
-        lines[plr]:Remove()
-        lines[plr] = nil
-    end
 end)
