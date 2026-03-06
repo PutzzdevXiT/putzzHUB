@@ -52,8 +52,8 @@ end
 local espBtn = createButton("ESP PLAYER",40)
 local lineBtn = createButton("ESP LINE",90)
 local flyBtn = createButton("FLY",140)
-local speedBtn = createButton("SPEED",140)
-
+local speedBtn = createButton("SPEED",190)
+local skeletonBtn = createButton("SKELETON",190)
 
 -- ESP
 local espEnabled = false
@@ -232,3 +232,53 @@ if humanoid then
 end
 
 end)
+
+-- ESP SKELETON
+local ESP_SKELETON = false
+local skeletonLines = {}
+
+function ToggleSkeleton()
+ESP_SKELETON = not ESP_SKELETON
+
+if not ESP_SKELETON then
+for i,v in pairs(skeletonLines) do
+v:Remove()
+end
+skeletonLines = {}
+end
+end
+
+local function drawLine(a,b)
+
+local line = Drawing.new("Line")
+line.Thickness = 2
+line.Color = Color3.fromRGB(0,255,0)
+line.Transparency = 1
+
+game:GetService("RunService").RenderStepped:Connect(function()
+
+if not ESP_SKELETON then
+line.Visible = false
+return
+end
+
+if a.Parent and b.Parent then
+
+local ap,vis1 = workspace.CurrentCamera:WorldToViewportPoint(a.Position)
+local bp,vis2 = workspace.CurrentCamera:WorldToViewportPoint(b.Position)
+
+if vis1 and vis2 then
+line.From = Vector2.new(ap.X,ap.Y)
+line.To = Vector2.new(bp.X,bp.Y)
+line.Visible = true
+else
+line.Visible = false
+end
+
+end
+
+end)
+
+table.insert(skeletonLines,line)
+
+end
