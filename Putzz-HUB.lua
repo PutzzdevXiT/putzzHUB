@@ -72,6 +72,7 @@ local lineBtn = makeButton("ESP LINE")
 local flyBtn = makeButton("FLY")
 local speedBtn = makeButton("SPEED OFF")
 local noclipBtn = makeButton("NOCLIP OFF")
+local invisibleBtn = makeButton("INVISIBLE OFF")
 
 -- ESP
 local espEnabled = false
@@ -272,5 +273,33 @@ RunService.Stepped:Connect(function()
 			end
 		end
 	end
+
+end)
+
+-- INVISIBLE
+local invisibleEnabled = false
+
+invisibleBtn.MouseButton1Click:Connect(function()
+
+invisibleEnabled = not invisibleEnabled
+local char = LocalPlayer.Character
+
+if char then
+	for _,v in pairs(char:GetDescendants()) do
+		if v:IsA("BasePart") or v:IsA("Decal") then
+			if invisibleEnabled then
+				v.Transparency = 1
+			else
+				v.Transparency = 0
+			end
+		end
+	end
+end
+
+if invisibleEnabled then
+	invisibleBtn.Text = "INVISIBLE ON"
+else
+	invisibleBtn.Text = "INVISIBLE OFF"
+end
 
 end)
