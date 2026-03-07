@@ -1,9 +1,10 @@
---// PUTZZDEV-HUB FINAL (Super Kece + All Features)
--- Ukuran: Sedang (350x450), semua fitur siap pakai
+--// PUTZZDEV-HUB FINAL (Dengan ESP Skeleton)
+-- Ukuran: Sedang (350x450), semua fitur siap pakai + Skeleton ESP
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
@@ -12,7 +13,9 @@ local LocalPlayer = Players.LocalPlayer
 local espEnabled = false
 local lineEnabled = false
 local healthEnabled = false
+local skeletonEnabled = false
 local ESPTable = {}
+local SkeletonESP = {}
 
 -- Fly
 local flyEnabled = false
@@ -27,7 +30,7 @@ local fastSpeed = 60
 -- NoClip
 local noclipEnabled = false
 
--- ================== FUNGSI ESP ASLI ==================
+-- ================== FUNGSI ESP BOX ==================
 local function createESP(player)
     if player == LocalPlayer then return end
 
@@ -65,7 +68,93 @@ local function createESP(player)
     ESPTable[player] = {box, name, dist, line, healthBg, healthFg}
 end
 
+-- ================== FUNGSI ESP SKELETON ==================
+local function createSkeleton(player)
+    if player == LocalPlayer then return end
+    
+    local lines = {}
+    
+    -- Definisi sambungan tulang (bone connections)
+    local connections = {
+        {"Head", "Torso"},
+        {"Torso", "Left Shoulder"}, {"Left Shoulder", "Left Arm"}, {"Left Arm", "Left Hand"},
+        {"Torso", "Right Shoulder"}, {"Right Shoulder", "Right Arm"}, {"Right Arm", "Right Hand"},
+        {"Torso", "Left Hip"}, {"Left Hip", "Left Leg"}, {"Left Leg", "Left Foot"},
+        {"Torso", "Right Hip"}, {"Right Hip", "Right Leg"}, {"Right Leg", "Right Foot"}
+    }
+    
+    -- Buat Drawing.Line untuk setiap sambungan
+    for i = 1, #connections do
+        local line = Drawing.new("Line")
+        line.Thickness = 2
+        line.Color = Color3.fromRGB(0, 255, 0)
+        line.Visible = false
+        table.insert(lines, {line, connections[i][1], connections[i][2]})
+    end
+    
+    SkeletonESP[player] = lines
+end
+
+-- ================== UPDATE ESP SKELETON ==================
+local function updateSkeleton(player, lines)
+    local char = player.Character
+    if not char then
+        for _, lineData in pairs(lines) do
+            lineData[1].Visible = false
+        end
+        return
+    end
+    
+    for _, lineData in pairs(lines) do
+        local line, part1Name, part2Name = unpack(lineData)
+        
+        local part1 = char:FindFirstChild(part1Name)
+        local part2 = char:FindFirstChild(part2Name)
+        
+        -- Fallback untuk part yang mungkin berbeda nama
+        if not part1 then
+            if part1Name == "Left Shoulder" then part1 = char:FindFirstChild("Left Arm") end
+            if part1Name == "Right Shoulder" then part1 = char:FindFirstChild("Right Arm") end
+            if part1Name == "Left Hip" then part1 = char:FindFirstChild("Left Leg") end
+            if part1Name == "Right Hip" then part1 = char:FindFirstChild("Right Leg") end
+            if part1Name == "Torso" then part1 = char:FindFirstChild("UpperTorso") or char:FindFirstChild("LowerTorso") end
+        end
+        
+        if not part2 then
+            if part2Name == "Left Shoulder" then part2 = char:FindFirstChild("Left Arm") end
+            if part2Name == "Right Shoulder" then part2 = char:FindFirstChild("Right Arm") end
+            if part2Name == "Left Hip" then part2 = char:FindFirstChild("Left Leg") end
+            if part2Name == "Right Hip" then part2 = char:FindFirstChild("Right Leg") end
+            if part2Name == "Torso" then part2 = char:FindFirstChild("UpperTorso") or char:FindFirstChild("LowerTorso") end
+        end
+        
+        if part1 and part2 then
+            local pos1, vis1 = Camera:WorldToViewportPoint(part1.Position)
+            local pos2, vis2 = Camera:WorldToViewportPoint(part2.Position)
+            
+            if vis1 and vis2 then
+                line.From = Vector2.new(pos1.X, pos1.Y)
+                line.To = Vector2.new(pos2.X, pos2.Y)
+                line.Visible = skeletonEnabled
+                
+                -- Warna berdasarkan tim
+                if player.Team and LocalPlayer.Team and player.Team ~= LocalPlayer.Team then
+                    line.Color = Color3.fromRGB(255, 0, 0)  -- Merah untuk musuh
+                else
+                    line.Color = Color3.fromRGB(0, 255, 0)  -- Hijau untuk teman
+                end
+            else
+                line.Visible = false
+            end
+        else
+            line.Visible = false
+        end
+    end
+end
+
+-- ================== RENDER STEP UNTUK SEMUA ESP ==================
 RunService.RenderStepped:Connect(function()
+    -- Update ESP Box
     for player, esp in pairs(ESPTable) do
         local box, name, dist, line, healthBg, healthFg = unpack(esp)
 
@@ -143,13 +232,32 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
+    
+    -- Update ESP Skeleton
+    if skeletonEnabled then
+        for player, lines in pairs(SkeletonESP) do
+            updateSkeleton(player, lines)
+        end
+    else
+        for _, lines in pairs(SkeletonESP) do
+            for _, lineData in pairs(lines) do
+                lineData[1].Visible = false
+            end
+        end
+    end
 end)
 
+-- Inisialisasi untuk player yang sudah ada
 for _, p in pairs(Players:GetPlayers()) do
     createESP(p)
+    createSkeleton(p)
 end
 
-Players.PlayerAdded:Connect(createESP)
+-- Untuk player yang join belakangan
+Players.PlayerAdded:Connect(function(p)
+    createESP(p)
+    createSkeleton(p)
+end)
 
 -- ================== FUNGSI FLY ==================
 local function startFly()
@@ -190,7 +298,7 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- ================== GUI SUPER KECE (UKURAN SEDANG) ==================
+-- ================== GUI SUPER KECE ==================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game.CoreGui
 ScreenGui.Name = "PutzzdevHubFinal"
@@ -311,18 +419,6 @@ lineBlue.Position = UDim2.new(0.1,0,1,-2)
 lineBlue.BackgroundColor3 = Color3.fromRGB(0,200,255)
 Instance.new("UICorner", lineBlue).CornerRadius = UDim.new(0,2)
 
--- Close button
-local closeBtn = Instance.new("TextButton")
-closeBtn.Parent = header
-closeBtn.Size = UDim2.new(0,35,0,35)
-closeBtn.Position = UDim2.new(1,-35,0,10)
-closeBtn.BackgroundTransparency = 1
-closeBtn.Text = "✕"
-closeBtn.TextColor3 = Color3.fromRGB(255,100,100)
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 22
-closeBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-
 -- Tab bar
 local tabBar = Instance.new("Frame")
 tabBar.Parent = mainFrame
@@ -406,6 +502,7 @@ y = 10
 makeToggle(tabESP, "ESP Player", y, false, function(s) espEnabled = s end); y = y + 46
 makeToggle(tabESP, "ESP Line", y, false, function(s) lineEnabled = s end); y = y + 46
 makeToggle(tabESP, "Health Bar", y, false, function(s) healthEnabled = s end); y = y + 46
+makeToggle(tabESP, "ESP Skeleton", y, false, function(s) skeletonEnabled = s end); y = y + 46
 tabESP.CanvasSize = UDim2.new(0,0,0,y+10)
 
 -- ===== TAB MOVE =====
@@ -430,13 +527,17 @@ tabMove.CanvasSize = UDim2.new(0,0,0,y+10)
 y = 10
 makeButton(tabMisc, "🔄 Refresh ESP", y, function()
     for p,_ in pairs(ESPTable) do ESPTable[p] = nil end
-    for _, p in pairs(Players:GetPlayers()) do createESP(p) end
+    for p,_ in pairs(SkeletonESP) do SkeletonESP[p] = nil end
+    for _, p in pairs(Players:GetPlayers()) do 
+        createESP(p)
+        createSkeleton(p)
+    end
 end); y = y + 46
 
-makeButton(tabMisc, "📋 Copy Tiktok dev", y, function()
+makeButton(tabMisc, "📋 Copy Discord", y, function()
     if setclipboard then
-        setclipboard("putzz_mvpp")
-        notify("TIKTOK DEV copied!")
+        setclipboard("discord.gg/putzzhub")
+        notify("Discord copied!")
     end
 end); y = y + 46
 
@@ -465,7 +566,7 @@ local function notify(msg)
     n:Destroy()
 end
 
-notify("Putzzdev-HUB Final Loaded!")
+notify("Putzzdev-HUB + Skeleton ESP Loaded!")
 
 -- Animasi masuk
 mainFrame.Position = UDim2.new(0.5,-175,0.6,-225)
@@ -516,3 +617,4 @@ openBtn.MouseButton1Click:Connect(function()
 	end
 
 end)
+
