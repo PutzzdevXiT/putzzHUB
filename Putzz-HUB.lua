@@ -470,3 +470,49 @@ notify("Putzzdev-HUB Final Loaded!")
 -- Animasi masuk
 mainFrame.Position = UDim2.new(0.5,-175,0.6,-225)
 TweenService:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Position = UDim2.new(0.5,-175,0.5,-225)}):Play()
+
+-- ================= OPEN / CLOSE BUTTON =================
+
+local openBtn = Instance.new("TextButton")
+openBtn.Parent = ScreenGui
+openBtn.Size = UDim2.new(0,55,0,55)
+openBtn.Position = UDim2.new(0,20,0.5,-27)
+openBtn.BackgroundColor3 = Color3.fromRGB(0,200,255)
+openBtn.Text = "P"
+openBtn.TextColor3 = Color3.new(1,1,1)
+openBtn.Font = Enum.Font.GothamBlack
+openBtn.TextSize = 22
+openBtn.AutoButtonColor = true
+openBtn.ZIndex = 10
+
+local corner = Instance.new("UICorner")
+corner.Parent = openBtn
+corner.CornerRadius = UDim.new(1,0)
+
+local stroke = Instance.new("UIStroke")
+stroke.Parent = openBtn
+stroke.Color = Color3.fromRGB(255,255,255)
+stroke.Thickness = 1.5
+
+-- toggle
+local menuOpen = true
+
+openBtn.MouseButton1Click:Connect(function()
+
+	menuOpen = not menuOpen
+
+	if menuOpen then
+		mainFrame.Visible = true
+		TweenService:Create(mainFrame,TweenInfo.new(0.25),{
+			Position = UDim2.new(0.5,-175,0.5,-225)
+		}):Play()
+	else
+		TweenService:Create(mainFrame,TweenInfo.new(0.25),{
+			Position = UDim2.new(0.5,-175,1,0)
+		}):Play()
+
+		task.wait(0.25)
+		mainFrame.Visible = false
+	end
+
+end)
