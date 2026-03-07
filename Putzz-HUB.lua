@@ -1,5 +1,5 @@
---// PUTZZDEV-HUB FINAL (Dengan ESP Skeleton Lengkap)
--- Ukuran: Sedang (350x450), semua fitur siap pakai + Skeleton ESP Detail
+--// PUTZZDEV-HUB FINAL (Dengan ESP Skeleton)
+-- Ukuran: Sedang (350x450), semua fitur siap pakai + Skeleton ESP
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -68,61 +68,26 @@ local function createESP(player)
     ESPTable[player] = {box, name, dist, line, healthBg, healthFg}
 end
 
--- ================== ESP SKELETON LENGKAP ==================
+-- ================== FUNGSI ESP SKELETON ==================
 local function createSkeleton(player)
     if player == LocalPlayer then return end
     
     local lines = {}
     
-    -- Definisi sambungan tulang LENGKAP (struktur manusia Roblox)
+    -- Definisi sambungan tulang (bone connections)
     local connections = {
-        -- Kepala ke leher
-        {"Head", "Neck"},
-        
-        -- Leher ke torso (atas)
-        {"Neck", "UpperTorso"},
-        
-        -- Torso atas ke bawah
-        {"UpperTorso", "LowerTorso"},
-        
-        -- Tangan kiri (dari torso ke jari)
-        {"UpperTorso", "LeftShoulder"},
-        {"LeftShoulder", "LeftUpperArm"},
-        {"LeftUpperArm", "LeftLowerArm"},
-        {"LeftLowerArm", "LeftHand"},
-        
-        -- Tangan kanan
-        {"UpperTorso", "RightShoulder"},
-        {"RightShoulder", "RightUpperArm"},
-        {"RightUpperArm", "RightLowerArm"},
-        {"RightLowerArm", "RightHand"},
-        
-        -- Kaki kiri
-        {"LowerTorso", "LeftHip"},
-        {"LeftHip", "LeftUpperLeg"},
-        {"LeftUpperLeg", "LeftLowerLeg"},
-        {"LeftLowerLeg", "LeftFoot"},
-        
-        -- Kaki kanan
-        {"LowerTorso", "RightHip"},
-        {"RightHip", "RightUpperLeg"},
-        {"RightUpperLeg", "RightLowerLeg"},
-        {"RightLowerLeg", "RightFoot"},
-        
-        -- Tulang punggung (tambahan biar lebih detail)
-        {"Neck", "UpperTorso"},
-        {"UpperTorso", "LowerTorso"},
-        
-        -- Sambungan silang (bahu ke pinggul) - membentuk X di badan
-        {"LeftShoulder", "RightHip"},
-        {"RightShoulder", "LeftHip"}
+        {"Head", "Torso"},
+        {"Torso", "Left Shoulder"}, {"Left Shoulder", "Left Arm"}, {"Left Arm", "Left Hand"},
+        {"Torso", "Right Shoulder"}, {"Right Shoulder", "Right Arm"}, {"Right Arm", "Right Hand"},
+        {"Torso", "Left Hip"}, {"Left Hip", "Left Leg"}, {"Left Leg", "Left Foot"},
+        {"Torso", "Right Hip"}, {"Right Hip", "Right Leg"}, {"Right Leg", "Right Foot"}
     }
     
     -- Buat Drawing.Line untuk setiap sambungan
     for i = 1, #connections do
         local line = Drawing.new("Line")
-        line.Thickness = 2.5
-        line.Color = Color3.fromRGB(255, 100, 0)
+        line.Thickness = 2
+        line.Color = Color3.fromRGB(0, 255, 0)
         line.Visible = false
         table.insert(lines, {line, connections[i][1], connections[i][2]})
     end
@@ -130,7 +95,7 @@ local function createSkeleton(player)
     SkeletonESP[player] = lines
 end
 
--- Update skeleton setiap frame
+-- ================== UPDATE ESP SKELETON ==================
 local function updateSkeleton(player, lines)
     local char = player.Character
     if not char then
@@ -143,126 +108,24 @@ local function updateSkeleton(player, lines)
     for _, lineData in pairs(lines) do
         local line, part1Name, part2Name = unpack(lineData)
         
-        -- Cari part dengan berbagai kemungkinan nama
         local part1 = char:FindFirstChild(part1Name)
         local part2 = char:FindFirstChild(part2Name)
         
-        -- Fallback system: coba cari part dengan nama alternatif
+        -- Fallback untuk part yang mungkin berbeda nama
         if not part1 then
-            local altNames1 = {
-                Head = {"Head"},
-                Neck = {"Neck"},
-                UpperTorso = {"UpperTorso", "Torso", "Chest"},
-                LowerTorso = {"LowerTorso", "Torso", "Hip"},
-                LeftShoulder = {"LeftShoulder", "Left Arm", "LeftUpperArm"},
-                RightShoulder = {"RightShoulder", "Right Arm", "RightUpperArm"},
-                LeftUpperArm = {"LeftUpperArm", "Left Arm", "LeftForearm"},
-                RightUpperArm = {"RightUpperArm", "Right Arm", "RightForearm"},
-                LeftLowerArm = {"LeftLowerArm", "Left Arm", "LeftHand"},
-                RightLowerArm = {"RightLowerArm", "Right Arm", "RightHand"},
-                LeftHand = {"LeftHand", "Left Arm"},
-                RightHand = {"RightHand", "Right Arm"},
-                LeftHip = {"LeftHip", "Left Leg", "LeftUpperLeg"},
-                RightHip = {"RightHip", "Right Leg", "RightUpperLeg"},
-                LeftUpperLeg = {"LeftUpperLeg", "Left Leg", "LeftLowerLeg"},
-                RightUpperLeg = {"RightUpperLeg", "Right Leg", "RightLowerLeg"},
-                LeftLowerLeg = {"LeftLowerLeg", "Left Leg", "LeftFoot"},
-                RightLowerLeg = {"RightLowerLeg", "Right Leg", "RightFoot"},
-                LeftFoot = {"LeftFoot", "Left Leg"},
-                RightFoot = {"RightFoot", "Right Leg"}
-            }
-            
-            if altNames1[part1Name] then
-                for _, altName in ipairs(altNames1[part1Name]) do
-                    part1 = char:FindFirstChild(altName)
-                    if part1 then break end
-                end
-            end
+            if part1Name == "Left Shoulder" then part1 = char:FindFirstChild("Left Arm") end
+            if part1Name == "Right Shoulder" then part1 = char:FindFirstChild("Right Arm") end
+            if part1Name == "Left Hip" then part1 = char:FindFirstChild("Left Leg") end
+            if part1Name == "Right Hip" then part1 = char:FindFirstChild("Right Leg") end
+            if part1Name == "Torso" then part1 = char:FindFirstChild("UpperTorso") or char:FindFirstChild("LowerTorso") end
         end
         
         if not part2 then
-            local altNames2 = {
-                Head = {"Head"},
-                Neck = {"Neck"},
-                UpperTorso = {"UpperTorso", "Torso", "Chest"},
-                LowerTorso = {"LowerTorso", "Torso", "Hip"},
-                LeftShoulder = {"LeftShoulder", "Left Arm", "LeftUpperArm"},
-                RightShoulder = {"RightShoulder", "Right Arm", "RightUpperArm"},
-                LeftUpperArm = {"LeftUpperArm", "Left Arm", "LeftForearm"},
-                RightUpperArm = {"RightUpperArm", "Right Arm", "RightForearm"},
-                LeftLowerArm = {"LeftLowerArm", "Left Arm", "LeftHand"},
-                RightLowerArm = {"RightLowerArm", "Right Arm", "RightHand"},
-                LeftHand = {"LeftHand", "Left Arm"},
-                RightHand = {"RightHand", "Right Arm"},
-                LeftHip = {"LeftHip", "Left Leg", "LeftUpperLeg"},
-                RightHip = {"RightHip", "Right Leg", "RightUpperLeg"},
-                LeftUpperLeg = {"LeftUpperLeg", "Left Leg", "LeftLowerLeg"},
-                RightUpperLeg = {"RightUpperLeg", "Right Leg", "RightLowerLeg"},
-                LeftLowerLeg = {"LeftLowerLeg", "Left Leg", "LeftFoot"},
-                RightLowerLeg = {"RightLowerLeg", "Right Leg", "RightFoot"},
-                LeftFoot = {"LeftFoot", "Left Leg"},
-                RightFoot = {"RightFoot", "Right Leg"}
-            }
-            
-            if altNames2[part2Name] then
-                for _, altName in ipairs(altNames2[part2Name]) do
-                    part2 = char:FindFirstChild(altName)
-                    if part2 then break end
-                end
-            end
-        end
-        
-        -- Fallback terakhir: cari berdasarkan kata kunci
-        if not part1 then
-            for _, child in pairs(char:GetChildren()) do
-                if child:IsA("BasePart") then
-                    if part1Name:lower():find("head") and child.Name:lower():find("head") then
-                        part1 = child
-                        break
-                    elseif part1Name:lower():find("torso") and child.Name:lower():find("torso") then
-                        part1 = child
-                        break
-                    elseif part1Name:lower():find("arm") and child.Name:lower():find("arm") then
-                        part1 = child
-                        break
-                    elseif part1Name:lower():find("leg") and child.Name:lower():find("leg") then
-                        part1 = child
-                        break
-                    elseif part1Name:lower():find("foot") and child.Name:lower():find("foot") then
-                        part1 = child
-                        break
-                    elseif part1Name:lower():find("hand") and child.Name:lower():find("hand") then
-                        part1 = child
-                        break
-                    end
-                end
-            end
-        end
-        
-        if not part2 then
-            for _, child in pairs(char:GetChildren()) do
-                if child:IsA("BasePart") then
-                    if part2Name:lower():find("head") and child.Name:lower():find("head") then
-                        part2 = child
-                        break
-                    elseif part2Name:lower():find("torso") and child.Name:lower():find("torso") then
-                        part2 = child
-                        break
-                    elseif part2Name:lower():find("arm") and child.Name:lower():find("arm") then
-                        part2 = child
-                        break
-                    elseif part2Name:lower():find("leg") and child.Name:lower():find("leg") then
-                        part2 = child
-                        break
-                    elseif part2Name:lower():find("foot") and child.Name:lower():find("foot") then
-                        part2 = child
-                        break
-                    elseif part2Name:lower():find("hand") and child.Name:lower():find("hand") then
-                        part2 = child
-                        break
-                    end
-                end
-            end
+            if part2Name == "Left Shoulder" then part2 = char:FindFirstChild("Left Arm") end
+            if part2Name == "Right Shoulder" then part2 = char:FindFirstChild("Right Arm") end
+            if part2Name == "Left Hip" then part2 = char:FindFirstChild("Left Leg") end
+            if part2Name == "Right Hip" then part2 = char:FindFirstChild("Right Leg") end
+            if part2Name == "Torso" then part2 = char:FindFirstChild("UpperTorso") or char:FindFirstChild("LowerTorso") end
         end
         
         if part1 and part2 then
@@ -276,9 +139,9 @@ local function updateSkeleton(player, lines)
                 
                 -- Warna berdasarkan tim
                 if player.Team and LocalPlayer.Team and player.Team ~= LocalPlayer.Team then
-                    line.Color = Color3.fromRGB(255, 50, 50)  -- Merah untuk musuh
+                    line.Color = Color3.fromRGB(255, 0, 0)  -- Merah untuk musuh
                 else
-                    line.Color = Color3.fromRGB(50, 255, 50)  -- Hijau untuk teman
+                    line.Color = Color3.fromRGB(0, 255, 0)  -- Hijau untuk teman
                 end
             else
                 line.Visible = false
@@ -687,50 +550,27 @@ contents[1].Visible = true
 -- Notifikasi
 local function notify(msg)
     local n = makeRounded(ScreenGui, UDim2.new(0,250,0,40), UDim2.new(0.5,-125,0.9,0), Color3.fromRGB(30,30,40), 6)
-    addGradient125,0.9,0), Color3.fromRGB(30,30,40), 6)
-    add(n, Color3.fromRGB(50,50,60), Color3.fromRGB(30,30Gradient(n, Color3.fromRGB(50,50,60), Color3.fromRGB(30,30,40), 90)
-    local l = Instance,40), 90)
+    addGradient(n, Color3.fromRGB(50,50,60), Color3.fromRGB(30,30,40), 90)
     local l = Instance.new("TextLabel", n)
-    l.Size = UDim2.new(.new("TextLabel", n)
     l.Size = UDim2.new(1,0,1,0)
-    l.BackgroundTransparency = 1,0,1,0)
     l.BackgroundTransparency = 1
-1
     l.Text = msg
-    l.TextColor3 = Color3.new(1,1,1)
-    l.Font =    l.Text = msg
     l.TextColor3 = Color3.new(1,1,1)
     l.Font = Enum.Font.Gotham
     l.TextSize = 14
 
-    TweenService:Create(n, TweenInfo.new(0.3 Enum.Font.Gotham
-    l.TextSize = 14
-
-    TweenService:Create(n, TweenInfo.new(0.3), {Position = UDim2.new(0.5,-125), {Position = UDim2.new(0.5,-125,0.8,0)}):Play()
+    TweenService:Create(n, TweenInfo.new(0.3), {Position = UDim2.new(0.5,-125,0.8,0)}):Play()
     wait(2)
-    TweenService:Create(n,0.8,0)}):Play()
-    wait(2)
-    TweenService:Create(n, TweenInfo.new(0.3), {Position =, TweenInfo.new(0.3), {Position = UDim2.new(0.5,- UDim2.new(0.5,-125,0.9,0)}):Play()
-   125,0.9,0)}):Play()
+    TweenService:Create(n, TweenInfo.new(0.3), {Position = UDim2.new(0.5,-125,0.9,0)}):Play()
     wait(0.3)
-    n:Destroy()
-end wait(0.3)
     n:Destroy()
 end
 
-notify("Putzzdev-HUB + Skeleton
-
-notify("Putzzdev-HUB + Skeleton ESP Detail Loaded!")
-
--- Animasi masuk ESP Detail Loaded!")
+notify("Putzzdev-HUB + Skeleton ESP Loaded!")
 
 -- Animasi masuk
-mainFrame.Position = UDim
-mainFrame.Position = UDim2.new(0.5,-175,02.new(0.5,-175,0.6,-225)
-TweenService:Create.6,-225)
-TweenService:Create(mainFrame, TweenInfo.new(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back), {(0.4, Enum.EasingStyle.Back), {Position = UDim2.new(0Position = UDim2.new(0.5,-175,0.5,-225)}):Play()
-
--- =.5,-175,0.5,-225)}):Play()
+mainFrame.Position = UDim2.new(0.5,-175,0.6,-225)
+TweenService:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Position = UDim2.new(0.5,-175,0.5,-225)}):Play()
 
 -- ================= OPEN / CLOSE BUTTON =================
 
