@@ -1,6 +1,19 @@
---// PUTZZDEV-HUB FINAL (ALL FEATURES + INVISIBLE)
--- Ukuran: Sedang (350x450), semua fitur siap pakai
+-- ================== DRIP CLIENT V10 (CLEAN EDITION) ==================
+-- Version: 10.0 (Clean - No Aimbot, No Timer Box)
+-- Developer: Putzz XD
 
+-- ================== KEY SYSTEM CONFIG ==================
+local FIREBASE_URL = "https://keyweb-f8e96-default-rtdb.europe-west1.firebasedatabase.app/keys.json"
+local WEBSITE_URL = "https://putzzdevxit.github.io/KEY-GENERATOR-/"
+local SCRIPT_NAME = "DRIP CLIENT"
+
+-- File untuk menyimpan data key
+local SAVE_FILE = "drip_key_data.txt"
+local activeKeys = {}
+local currentUserKey = nil
+local keyExpiryTime = 0
+
+-- ================== LOAD SERVICES ==================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -17,651 +30,1451 @@ local skeletonEnabled = false
 local ESPTable = {}
 local SkeletonESP = {}
 
--- Fly
+-- Movement
 local flyEnabled = false
 local flySpeed = 60
 local bv = nil
 local bg = nil
 
--- Speed
 local speedEnabled = false
 local normalSpeed = 16
 local fastSpeed = 60
 
--- NoClip
 local noclipEnabled = false
 
--- INVISIBLE (Transparan)
-local invisibleEnabled = false
-local originalTransparency = {}
+-- Combat (AIMBOT DIHAPUS)
+local infinityJumpEnabled = false
+local jumpCount = 0
 
--- ================== FUNGSI INVISIBLE ==================
-local function setInvisible(state)
-    local char = LocalPlayer.Character
-    if not char then return end
-    
-    if state then
-        -- Simpan transparency asli dan set jadi 0.9 (hampir transparan)
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                originalTransparency[part] = part.Transparency
-                part.Transparency = 0.9
+-- Utility
+local antiDamageEnabled = false
+local antiDamageConnection = nil
+local antiDamageThread = nil
+local antiDamageHeartbeat = nil
+
+local spinEnabled = false
+local spinSpeed = 10
+local spinConnection = nil
+local spinDirection = 1
+
+local invisibleEnabled = false
+local invisibleConnection = nil
+local invisibleParts = {}
+local invisibleRootPart = nil
+local invisibleHumanoid = nil
+
+-- Warna Tema UNGU
+local themeColor = Color3.fromRGB(156, 39, 176)
+local darkPurple = Color3.fromRGB(74, 20, 90)
+
+-- ================== FUNGSI KEY SYSTEM ==================
+local function loadKeyData()
+    if isfile and isfile(SAVE_FILE) then
+        local success, content = pcall(function()
+            return readfile(SAVE_FILE)
+        end)
+        if success and content and content ~= "" then
+            local success2, data = pcall(function()
+                return game:GetService("HttpService"):JSONDecode(content)
+            end)
+            if success2 then
+                activeKeys = data
             end
         end
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            originalTransparency[humanoid] = humanoid.Transparency
-            humanoid.Transparency = 0.9
+    end
+end
+
+local function saveKeyData()
+    if writefile then
+        local success, json = pcall(function()
+            return game:GetService("HttpService"):JSONEncode(activeKeys)
+        end)
+        if success then
+            writefile(SAVE_FILE, json)
+        end
+    end
+end
+
+local function getKeysFromFirebase()
+    local success, data = pcall(function()
+        return game:HttpGet(FIREBASE_URL)
+    end)
+    
+    if success and data then
+        local success2, jsonData = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(data)
+        end)
+        if success2 and jsonData then
+            local keysArray = {}
+            for _, keyData in pairs(jsonData) do
+                table.insert(keysArray, keyData)
+            end
+            return keysArray
+        end
+    end
+    return nil
+end
+
+local function getTimeRemaining(expiryTimestamp)
+    local currentTime = os.time()
+    local remaining = expiryTimestamp - currentTime
+    
+    if remaining <= 0 then
+        return 0, 0, 0, 0, "EXPIRED"
+    end
+    
+    local days = math.floor(remaining / 86400)
+    local hours = math.floor((remaining % 86400) / 3600)
+    local minutes = math.floor((remaining % 3600) / 60)
+    local seconds = remaining % 60
+    
+    local timeStr = string.format("%d Hari : %02d Jam : %02d Menit : %02d Detik", 
+        days, hours, minutes, seconds)
+    
+    return days, hours, minutes, seconds, timeStr
+end
+
+local function checkKeyExpiry(inputKey)
+    loadKeyData()
+    
+    local keysData = getKeysFromFirebase()
+    if not keysData then
+        return false, "Gagal mengambil data key dari server"
+    end
+    
+    local foundKey = nil
+    local expiryDays = nil
+    
+    for _, keyData in ipairs(keysData) do
+        if keyData.key == inputKey then
+            foundKey = keyData.key
+            
+            if keyData.jenis == "1 JAM" then
+                expiryDays = 1/24
+            elseif keyData.jenis == "1 HARI" then
+                expiryDays = 1
+            elseif keyData.jenis == "2 HARI" then
+                expiryDays = 2
+            elseif keyData.jenis == "3 HARI" then
+                expiryDays = 3
+            elseif keyData.jenis == "7 HARI" then
+                expiryDays = 7
+            elseif keyData.jenis == "30 HARI" then
+                expiryDays = 30
+            elseif keyData.jenis == "PERMANEN" then
+                expiryDays = 9999999
+            else
+                expiryDays = 1
+            end
+            break
+        end
+    end
+    
+    if not foundKey then
+        return false, "KEY TIDAK TERDAFTAR!"
+    end
+    
+    if activeKeys[inputKey] then
+        local firstUsed = activeKeys[inputKey].firstUsed
+        local currentTime = os.time()
+        local expiryTime = firstUsed + (expiryDays * 86400)
+        
+        if currentTime > expiryTime then
+            return false, "KEY SUDAH EXPIRED! (" .. expiryDays .. " hari)"
+        else
+            local days, hours, minutes, seconds, timeStr = getTimeRemaining(expiryTime)
+            keyExpiryTime = expiryTime
+            currentUserKey = inputKey
+            return true, "KEY VALID! Sisa " .. timeStr
         end
     else
-        -- Kembalikan transparency asli
-        for part, trans in pairs(originalTransparency) do
-            if part and part.Parent then
-                part.Transparency = trans
+        local currentTime = os.time()
+        activeKeys[inputKey] = {
+            firstUsed = currentTime,
+            key = inputKey,
+            expiryDays = expiryDays
+        }
+        saveKeyData()
+        
+        local expiryTime = currentTime + (expiryDays * 86400)
+        keyExpiryTime = expiryTime
+        currentUserKey = inputKey
+        
+        return true, "KEY VALID! Berlaku " .. expiryDays .. " hari"
+    end
+end
+
+local function showNotification(title, text, duration, color)
+    local notif = Instance.new("Frame")
+    notif.Parent = KeyGui
+    notif.Size = UDim2.new(0, 300, 0, 70)
+    notif.Position = UDim2.new(0.5, -150, 0, -80)
+    notif.BackgroundColor3 = color or Color3.fromRGB(30, 30, 40)
+    notif.BackgroundTransparency = 0.1
+    notif.BorderSizePixel = 0
+    notif.ZIndex = 999
+
+    local notifCorner = Instance.new("UICorner")
+    notifCorner.Parent = notif
+    notifCorner.CornerRadius = UDim.new(0, 12)
+
+    local notifTitle = Instance.new("TextLabel")
+    notifTitle.Parent = notif
+    notifTitle.Size = UDim2.new(1, 0, 0.5, 0)
+    notifTitle.Position = UDim2.new(0, 0, 0, 5)
+    notifTitle.BackgroundTransparency = 1
+    notifTitle.Text = title
+    notifTitle.TextColor3 = Color3.new(1, 1, 1)
+    notifTitle.Font = Enum.Font.GothamBold
+    notifTitle.TextSize = 18
+
+    local notifText = Instance.new("TextLabel")
+    notifText.Parent = notif
+    notifText.Size = UDim2.new(1, 0, 0.5, 0)
+    notifText.Position = UDim2.new(0, 0, 0, 35)
+    notifText.BackgroundTransparency = 1
+    notifText.Text = text
+    notifText.TextColor3 = Color3.new(1, 1, 1)
+    notifText.Font = Enum.Font.Gotham
+    notifText.TextSize = 14
+
+    TweenService:Create(notif, TweenInfo.new(0.5), {Position = UDim2.new(0.5, -150, 0, 20)}):Play()
+    task.wait(duration or 3)
+    TweenService:Create(notif, TweenInfo.new(0.5), {Position = UDim2.new(0.5, -150, 0, -80)}):Play()
+    task.wait(0.5)
+    notif:Destroy()
+end
+
+-- ================== GUI KEY SYSTEM ==================
+local KeyGui = Instance.new("ScreenGui")
+KeyGui.Name = "DripKeySystem"
+KeyGui.Parent = game.CoreGui
+KeyGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+KeyGui.DisplayOrder = 999
+
+local KeyFrame = Instance.new("Frame")
+KeyFrame.Parent = KeyGui
+KeyFrame.Size = UDim2.new(0, 400, 0, 380)
+KeyFrame.Position = UDim2.new(0.5, -200, 0.5, -190)
+KeyFrame.BackgroundColor3 = darkPurple
+KeyFrame.BackgroundTransparency = 0.1
+KeyFrame.BorderSizePixel = 0
+KeyFrame.Active = true
+KeyFrame.Draggable = true
+
+local KeyCorner = Instance.new("UICorner")
+KeyCorner.Parent = KeyFrame
+KeyCorner.CornerRadius = UDim.new(0, 20)
+
+local KeyBorder = Instance.new("Frame")
+KeyBorder.Parent = KeyFrame
+KeyBorder.Size = UDim2.new(1, 0, 1, 0)
+KeyBorder.BackgroundTransparency = 1
+KeyBorder.BorderSizePixel = 2
+KeyBorder.BorderColor3 = themeColor
+
+local KeyBorderCorner = Instance.new("UICorner")
+KeyBorderCorner.Parent = KeyBorder
+KeyBorderCorner.CornerRadius = UDim.new(0, 20)
+
+local KeyHeader = Instance.new("Frame")
+KeyHeader.Parent = KeyFrame
+KeyHeader.Size = UDim2.new(1, 0, 0, 80)
+KeyHeader.BackgroundTransparency = 1
+
+local KeyIcon = Instance.new("TextLabel")
+KeyIcon.Parent = KeyHeader
+KeyIcon.Size = UDim2.new(1, 0, 0.5, 0)
+KeyIcon.Position = UDim2.new(0, 0, 0, 10)
+KeyIcon.BackgroundTransparency = 1
+KeyIcon.Text = ""
+KeyIcon.TextColor3 = themeColor
+KeyIcon.Font = Enum.Font.GothamBlack
+KeyIcon.TextSize = 45
+
+local KeyTitle = Instance.new("TextLabel")
+KeyTitle.Parent = KeyHeader
+KeyTitle.Size = UDim2.new(1, 0, 0.5, 0)
+KeyTitle.Position = UDim2.new(0, 0, 0, 50)
+KeyTitle.BackgroundTransparency = 1
+KeyTitle.Text = "DRIP CLIENT AUTH"
+KeyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyTitle.Font = Enum.Font.GothamBold
+KeyTitle.TextSize = 16
+KeyTitle.TextStrokeTransparency = 0.3
+KeyTitle.TextStrokeColor3 = themeColor
+
+local InfoFrame = Instance.new("Frame")
+InfoFrame.Parent = KeyFrame
+InfoFrame.Size = UDim2.new(0.9, 0, 0, 70)
+InfoFrame.Position = UDim2.new(0.05, 0, 0.22, 0)
+InfoFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+InfoFrame.BackgroundTransparency = 0.3
+InfoFrame.BorderSizePixel = 0
+
+local InfoCorner = Instance.new("UICorner")
+InfoCorner.Parent = InfoFrame
+InfoCorner.CornerRadius = UDim.new(0, 12)
+
+local InfoText = Instance.new("TextLabel")
+InfoText.Parent = InfoFrame
+InfoText.Size = UDim2.new(1, -20, 1, -10)
+InfoText.Position = UDim2.new(0, 10, 0, 5)
+InfoText.BackgroundTransparency = 1
+InfoText.Text = "Masukkan Key Anda untuk mengakses script premium"
+InfoText.TextColor3 = Color3.fromRGB(200, 200, 200)
+InfoText.Font = Enum.Font.Gotham
+InfoText.TextSize = 13
+InfoText.TextXAlignment = Enum.TextXAlignment.Left
+
+local KeyLabel = Instance.new("TextLabel")
+KeyLabel.Parent = KeyFrame
+KeyLabel.Size = UDim2.new(0.8, 0, 0, 20)
+KeyLabel.Position = UDim2.new(0.1, 0, 0.38, 0)
+KeyLabel.BackgroundTransparency = 1
+KeyLabel.Text = "MASUKAN KEY ANDA"
+KeyLabel.TextColor3 = themeColor
+KeyLabel.Font = Enum.Font.GothamBold
+KeyLabel.TextSize = 12
+KeyLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local KeyTextBox = Instance.new("TextBox")
+KeyTextBox.Parent = KeyFrame
+KeyTextBox.Size = UDim2.new(0.8, 0, 0, 45)
+KeyTextBox.Position = UDim2.new(0.1, 0, 0.42, 0)
+KeyTextBox.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+KeyTextBox.BackgroundTransparency = 0.1
+KeyTextBox.TextColor3 = Color3.new(1, 1, 1)
+KeyTextBox.PlaceholderText = "Masukkan key..."
+KeyTextBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+KeyTextBox.Font = Enum.Font.Gotham
+KeyTextBox.TextSize = 14
+KeyTextBox.ClearTextOnFocus = true
+
+local KeyBoxCorner = Instance.new("UICorner")
+KeyBoxCorner.Parent = KeyTextBox
+KeyBoxCorner.CornerRadius = UDim.new(0, 10)
+
+local VerifyBtn = Instance.new("TextButton")
+VerifyBtn.Parent = KeyFrame
+VerifyBtn.Size = UDim2.new(0.8, 0, 0, 45)
+VerifyBtn.Position = UDim2.new(0.1, 0, 0.55, 0)
+VerifyBtn.BackgroundColor3 = themeColor
+VerifyBtn.BackgroundTransparency = 0.2
+VerifyBtn.Text = "VERIFIKASI KEY"
+VerifyBtn.TextColor3 = Color3.new(1, 1, 1)
+VerifyBtn.Font = Enum.Font.GothamBold
+VerifyBtn.TextSize = 16
+
+local VerifyCorner = Instance.new("UICorner")
+VerifyCorner.Parent = VerifyBtn
+VerifyCorner.CornerRadius = UDim.new(0, 10)
+
+local WebsiteBtn = Instance.new("TextButton")
+WebsiteBtn.Parent = KeyFrame
+WebsiteBtn.Size = UDim2.new(0.5, 0, 0, 35)
+WebsiteBtn.Position = UDim2.new(0.25, 0, 0.67, 0)
+WebsiteBtn.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+WebsiteBtn.BackgroundTransparency = 0.2
+WebsiteBtn.Text = "GET KEY"
+WebsiteBtn.TextColor3 = Color3.new(1, 1, 1)
+WebsiteBtn.Font = Enum.Font.GothamBold
+WebsiteBtn.TextSize = 14
+
+local WebsiteCorner = Instance.new("UICorner")
+WebsiteCorner.Parent = WebsiteBtn
+WebsiteCorner.CornerRadius = UDim.new(0, 8)
+
+local StatusFrame = Instance.new("Frame")
+StatusFrame.Parent = KeyFrame
+StatusFrame.Size = UDim2.new(0.9, 0, 0, 40)
+StatusFrame.Position = UDim2.new(0.05, 0, 0.78, 0)
+StatusFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+StatusFrame.BackgroundTransparency = 0.3
+StatusFrame.BorderSizePixel = 0
+
+local StatusCorner = Instance.new("UICorner")
+StatusCorner.Parent = StatusFrame
+StatusCorner.CornerRadius = UDim.new(0, 10)
+
+local StatusIcon = Instance.new("TextLabel")
+StatusIcon.Parent = StatusFrame
+StatusIcon.Size = UDim2.new(0, 30, 1, 0)
+StatusIcon.Position = UDim2.new(0, 5, 0, 0)
+StatusIcon.BackgroundTransparency = 1
+StatusIcon.Text = "🔒"
+StatusIcon.TextColor3 = Color3.fromRGB(255, 255, 0)
+StatusIcon.Font = Enum.Font.GothamBold
+StatusIcon.TextSize = 18
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Parent = StatusFrame
+StatusLabel.Size = UDim2.new(1, -40, 1, 0)
+StatusLabel.Position = UDim2.new(0, 35, 0, 0)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Menunggu Key..."
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextSize = 13
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local LoadingCircle = Instance.new("Frame")
+LoadingCircle.Parent = KeyFrame
+LoadingCircle.Size = UDim2.new(0, 30, 0, 30)
+LoadingCircle.Position = UDim2.new(0.5, -15, 0.9, -15)
+LoadingCircle.BackgroundColor3 = themeColor
+LoadingCircle.BackgroundTransparency = 1
+LoadingCircle.Visible = false
+
+local CircleCorner = Instance.new("UICorner")
+CircleCorner.Parent = LoadingCircle
+CircleCorner.CornerRadius = UDim.new(1, 0)
+
+local function showLoading(show)
+    LoadingCircle.Visible = show
+    if show then
+        spawn(function()
+            local rotation = 0
+            while LoadingCircle.Visible do
+                rotation = (rotation + 5) % 360
+                LoadingCircle.Rotation = rotation
+                task.wait(0.01)
+            end
+        end)
+    end
+end
+
+WebsiteBtn.MouseButton1Click:Connect(function()
+    local success = pcall(function()
+        if setclipboard then
+            setclipboard(WEBSITE_URL)
+            StatusLabel.Text = "✓ Link disalin! Buka browser"
+            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+            StatusIcon.Text = "✅"
+            showNotification("✅ LINK DISALIN!", "Buka browser dan paste linknya", 2, Color3.fromRGB(0, 150, 0))
+        else
+            StatusLabel.Text = "🌐 " .. WEBSITE_URL
+            StatusLabel.TextColor3 = Color3.fromRGB(0, 200, 255)
+        end
+    end)
+end)
+
+-- ================== FUNGSI UTILITY ==================
+-- SPIN
+local function toggleSpin(state)
+    spinEnabled = state
+    if spinConnection then spinConnection:Disconnect() spinConnection = nil end
+    if state then
+        spinConnection = RunService.Heartbeat:Connect(function()
+            if spinEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local rootPart = LocalPlayer.Character.HumanoidRootPart
+                rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(spinSpeed * spinDirection), 0)
+            end
+        end)
+        showNotification("SPIN AKTIF", "Kamu muter terus!", 1.5, Color3.fromRGB(255, 0, 255))
+    end
+end
+
+local function toggleSpinDirection()
+    spinDirection = spinDirection * -1
+    showNotification("ARAH SPIN", spinDirection == 1 and "KANAN" or "KIRI", 1, Color3.fromRGB(0, 200, 255))
+end
+
+-- INVISIBLE
+local function updateInvisibleData()
+    if LocalPlayer.Character then
+        invisibleRootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        invisibleHumanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        invisibleParts = {}
+        for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+            if v:IsA("BasePart") and v.Transparency == 0 then
+                table.insert(invisibleParts, v)
             end
         end
-        table.clear(originalTransparency)
     end
 end
 
--- ================== FUNGSI ESP BOX ==================
-local function createESP(player)
-    if player == LocalPlayer then return end
-
-    local box = Drawing.new("Square")
-    box.Thickness = 2
-    box.Color = Color3.fromRGB(0,255,0)
-    box.Filled = false
-    box.Visible = false
-
-    local name = Drawing.new("Text")
-    name.Size = 16
-    name.Color = Color3.new(1,1,1)
-    name.Center = true
-    name.Outline = true
-    name.Visible = false
-
-    local dist = Drawing.new("Text")
-    dist.Size = 13
-    dist.Color = Color3.new(1,1,1)
-    dist.Center = true
-    dist.Outline = true
-    dist.Visible = false
-
-    local line = Drawing.new("Line")
-    line.Thickness = 1
-    line.Color = Color3.fromRGB(255,255,255)
-    line.Visible = false
-
-    local healthBg = Drawing.new("Square")
-    healthBg.Thickness = 1
-    healthBg.Color = Color3.fromRGB(30,30,30)
-    healthBg.Filled = true
-    healthBg.Visible = false
-
-    local healthFg = Drawing.new("Square")
-    healthFg.Thickness = 0
-    healthFg.Color = Color3.fromRGB(0,255,0)
-    healthFg.Filled = true
-    healthFg.Visible = false
-
-    ESPTable[player] = {box, name, dist, line, healthBg, healthFg}
+local function toggleInvisible(state)
+    invisibleEnabled = state
+    if invisibleConnection then invisibleConnection:Disconnect() invisibleConnection = nil end
+    updateInvisibleData()
+    if state then
+        for _, v in pairs(invisibleParts) do v.Transparency = 0.5 end
+        invisibleConnection = RunService.Heartbeat:Connect(function()
+            if invisibleEnabled and invisibleRootPart and invisibleHumanoid then
+                local oldCF = invisibleRootPart.CFrame
+                local oldOffset = invisibleHumanoid.CameraOffset
+                local hideCF = oldCF * CFrame.new(0, -200000, 0)
+                invisibleRootPart.CFrame = hideCF
+                invisibleHumanoid.CameraOffset = hideCF:ToObjectSpace(CFrame.new(oldCF.Position)).Position
+                RunService.RenderStepped:Wait()
+                invisibleRootPart.CFrame = oldCF
+                invisibleHumanoid.CameraOffset = oldOffset
+            end
+        end)
+        showNotification("INVISIBLE ON", "Kamu tidak terlihat!", 1.5, Color3.fromRGB(150, 0, 255))
+    else
+        for _, v in pairs(invisibleParts) do v.Transparency = 0 end
+        showNotification("INVISIBLE OFF", "Kamu terlihat lagi", 1.5, Color3.fromRGB(255, 0, 0))
+    end
 end
 
--- ================== ESP SKELETON ==================
-local function createSkeleton(player)
-    if player == LocalPlayer then return end
+-- GOD MODE (ANTI DAMAGE)
+local function setupAntiDamage()
+    if antiDamageHeartbeat then antiDamageHeartbeat:Disconnect() end
+    if antiDamageConnection then antiDamageConnection:Disconnect() end
+    if antiDamageThread then antiDamageThread = nil end
     
-    local lines = {}
+    antiDamageHeartbeat = RunService.Heartbeat:Connect(function()
+        if antiDamageEnabled and LocalPlayer.Character then
+            local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                if humanoid.Health < humanoid.MaxHealth then humanoid.Health = humanoid.MaxHealth end
+                if humanoid.Health <= 0 then humanoid.Health = humanoid.MaxHealth end
+            end
+        end
+    end)
     
-    local connections = {
-        {"Head", "UpperTorso"},
-        {"UpperTorso", "LowerTorso"},
-        {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
-        {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
-        {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
-        {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"},
-        {"LeftShoulder", "RightHip"}, {"RightShoulder", "LeftHip"}
-    }
+    antiDamageThread = task.spawn(function()
+        while antiDamageEnabled do
+            task.wait(0.001)
+            pcall(function()
+                if LocalPlayer.Character then
+                    local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health < humanoid.MaxHealth then humanoid.Health = humanoid.MaxHealth end
+                end
+            end)
+        end
+    end)
     
-    for i = 1, #connections do
+    local function onHealthChanged()
+        if antiDamageEnabled and LocalPlayer.Character then
+            local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.HealthChanged:Connect(function(newHealth)
+                    if antiDamageEnabled and newHealth < humanoid.MaxHealth then humanoid.Health = humanoid.MaxHealth end
+                end)
+            end
+        end
+    end
+    
+    if LocalPlayer.Character then onHealthChanged() end
+    LocalPlayer.CharacterAdded:Connect(function() task.wait(0.5); if antiDamageEnabled then onHealthChanged() end end)
+    showNotification("GOD MODE AKTIF", "Anti one-hit kill!", 1.5, Color3.fromRGB(0, 255, 0))
+end
+
+-- ================== FUNGSI UTAMA ==================
+local function loadMainScript()
+    KeyGui:Destroy()
+    print("✅ DRIP CLIENT - Memuat semua fitur...")
+    
+    -- ================== FUNGSI INFINITY JUMP ==================
+    local function onJumpRequest()
+        if infinityJumpEnabled then
+            local char = LocalPlayer.Character
+            if char then
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
+            end
+        end
+    end
+    UserInputService.JumpRequest:Connect(onJumpRequest)
+
+    local function onTouchGround() jumpCount = 0 end
+    LocalPlayer.CharacterAdded:Connect(function(char)
+        local humanoid = char:WaitForChild("Humanoid")
+        humanoid.StateChanged:Connect(function(_, newState)
+            if newState == Enum.HumanoidStateType.Landed then onTouchGround() end
+        end)
+    end)
+
+    -- ================== FUNGSI TELEPORT ==================
+    local function teleportToPlayer(username)
+        for _, player in pairs(Players:GetPlayers()) do
+            if player.Name:lower():find(username:lower()) or (player.DisplayName and player.DisplayName:lower():find(username:lower())) then
+                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local myChar = LocalPlayer.Character
+                    if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+                        myChar.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+                        return true
+                    end
+                end
+            end
+        end
+        return false
+    end
+
+    -- ================== FUNGSI ESP ==================
+    local function createESP(player)
+        if player == LocalPlayer then return end
+        local box = Drawing.new("Square")
+        box.Thickness = 2.5
+        box.Color = themeColor
+        box.Filled = false
+        box.Visible = false
+        
+        local name = Drawing.new("Text")
+        name.Size = 16
+        name.Color = Color3.fromRGB(255, 255, 255)
+        name.Center = true
+        name.Outline = true
+        name.OutlineColor = Color3.fromRGB(0, 0, 0)
+        name.Visible = false
+        
+        local dist = Drawing.new("Text")
+        dist.Size = 13
+        dist.Color = Color3.fromRGB(200, 200, 200)
+        dist.Center = true
+        dist.Outline = true
+        dist.OutlineColor = Color3.fromRGB(0, 0, 0)
+        dist.Visible = false
+        
         local line = Drawing.new("Line")
         line.Thickness = 2.5
-        line.Color = Color3.fromRGB(255, 100, 0)
+        line.Color = themeColor
         line.Visible = false
-        table.insert(lines, {line, connections[i][1], connections[i][2]})
-    end
-    
-    SkeletonESP[player] = lines
-end
-
--- Update skeleton
-local function updateSkeleton(player, lines)
-    local char = player.Character
-    if not char then
-        for _, lineData in pairs(lines) do
-            lineData[1].Visible = false
-        end
-        return
-    end
-    
-    for _, lineData in pairs(lines) do
-        local line, part1Name, part2Name = unpack(lineData)
-        local part1 = char:FindFirstChild(part1Name) or char:FindFirstChild(part1Name:gsub("Upper", ""):gsub("Lower", ""))
-        local part2 = char:FindFirstChild(part2Name) or char:FindFirstChild(part2Name:gsub("Upper", ""):gsub("Lower", ""))
         
-        if part1 and part2 then
-            local pos1, vis1 = Camera:WorldToViewportPoint(part1.Position)
-            local pos2, vis2 = Camera:WorldToViewportPoint(part2.Position)
-            
-            if vis1 and vis2 then
-                line.From = Vector2.new(pos1.X, pos1.Y)
-                line.To = Vector2.new(pos2.X, pos2.Y)
-                line.Visible = skeletonEnabled
-                
-                if player.Team and LocalPlayer.Team and player.Team ~= LocalPlayer.Team then
-                    line.Color = Color3.fromRGB(255, 50, 50)
+        local healthBg = Drawing.new("Square")
+        healthBg.Thickness = 1
+        healthBg.Color = Color3.fromRGB(30, 30, 30)
+        healthBg.Filled = true
+        healthBg.Visible = false
+        
+        local healthFg = Drawing.new("Square")
+        healthFg.Thickness = 0
+        healthFg.Color = Color3.fromRGB(0, 255, 0)
+        healthFg.Filled = true
+        healthFg.Visible = false
+        
+        ESPTable[player] = {box, name, dist, line, healthBg, healthFg}
+    end
+    
+    -- ================== ESP SKELETON ==================
+    local function createSkeleton(player)
+        if player == LocalPlayer then return end
+        local lines = {}
+        local connections = {
+            {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
+            {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
+            {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
+            {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
+            {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"}
+        }
+        for i = 1, #connections do
+            local line = Drawing.new("Line")
+            line.Thickness = 2.5
+            line.Color = themeColor
+            line.Visible = false
+            table.insert(lines, {line, connections[i][1], connections[i][2]})
+        end
+        SkeletonESP[player] = lines
+    end
+    
+    local function updateSkeleton(player, lines)
+        local char = player.Character
+        if not char then
+            for _, lineData in pairs(lines) do lineData[1].Visible = false end
+            return
+        end
+        for _, lineData in pairs(lines) do
+            local line, part1Name, part2Name = unpack(lineData)
+            local part1 = char:FindFirstChild(part1Name) or char:FindFirstChild(part1Name:gsub("Upper", ""):gsub("Lower", ""))
+            local part2 = char:FindFirstChild(part2Name) or char:FindFirstChild(part2Name:gsub("Upper", ""):gsub("Lower", ""))
+            if part1 and part2 then
+                local pos1, vis1 = Camera:WorldToViewportPoint(part1.Position)
+                local pos2, vis2 = Camera:WorldToViewportPoint(part2.Position)
+                if vis1 and vis2 then
+                    line.From = Vector2.new(pos1.X, pos1.Y)
+                    line.To = Vector2.new(pos2.X, pos2.Y)
+                    line.Visible = skeletonEnabled
+                    line.Color = themeColor
                 else
-                    line.Color = Color3.fromRGB(50, 255, 50)
+                    line.Visible = false
                 end
             else
                 line.Visible = false
             end
-        else
-            line.Visible = false
         end
     end
-end
-
--- ================== RENDER STEP ==================
-RunService.RenderStepped:Connect(function()
-    -- ESP Box
-    for player, esp in pairs(ESPTable) do
-        local box, name, dist, line, healthBg, healthFg = unpack(esp)
-
-        local char = player.Character
-        if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Head") then
-            local hrp = char.HumanoidRootPart
-            local head = char.Head
-            local humanoid = char:FindFirstChildOfClass("Humanoid")
-
-            local pos, visible = Camera:WorldToViewportPoint(hrp.Position)
-
-            if visible then
-                local top = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
-                local bottom = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
-
-                local height = math.abs(top.Y - bottom.Y)
-                local width = height / 2
-
-                if espEnabled then
-                    box.Size = Vector2.new(width, height)
-                    box.Position = Vector2.new(pos.X - width/2, top.Y)
-                    box.Visible = true
-
-                    name.Position = Vector2.new(pos.X, top.Y - 16)
-                    name.Text = player.Name
-                    name.Visible = true
-
-                    local myChar = LocalPlayer.Character
-                    if myChar and myChar:FindFirstChild("HumanoidRootPart") then
-                        local distance = (myChar.HumanoidRootPart.Position - hrp.Position).Magnitude
-                        dist.Text = math.floor(distance).."m"
-                        dist.Position = Vector2.new(pos.X, bottom.Y + 2)
-                        dist.Visible = true
+    
+    -- Render Stepped
+    RunService.RenderStepped:Connect(function()
+        for player, esp in pairs(ESPTable) do
+            local box, name, dist, line, healthBg, healthFg = unpack(esp)
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Head") then
+                local hrp = char.HumanoidRootPart
+                local head = char.Head
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                local pos, visible = Camera:WorldToViewportPoint(hrp.Position)
+                if visible then
+                    local top = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                    local bottom = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
+                    local height = math.abs(top.Y - bottom.Y)
+                    local width = height / 2
+                    
+                    if espEnabled then
+                        box.Size = Vector2.new(width, height)
+                        box.Position = Vector2.new(pos.X - width/2, top.Y)
+                        box.Visible = true
+                        name.Position = Vector2.new(pos.X, top.Y - 18)
+                        name.Text = player.Name
+                        name.Visible = true
+                        local myChar = LocalPlayer.Character
+                        if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+                            local distance = (myChar.HumanoidRootPart.Position - hrp.Position).Magnitude
+                            dist.Text = math.floor(distance) .. "m"
+                            dist.Position = Vector2.new(pos.X, bottom.Y + 5)
+                            dist.Visible = true
+                        end
+                    else
+                        box.Visible = false
+                        name.Visible = false
+                        dist.Visible = false
+                    end
+                    
+                    if healthEnabled and humanoid then
+                        local healthPercent = humanoid.Health / humanoid.MaxHealth
+                        local barWidth = width * 0.8
+                        local barHeight = 4
+                        local barX = pos.X - barWidth / 2
+                        local barY = top.Y - 22
+                        healthBg.Size = Vector2.new(barWidth, barHeight)
+                        healthBg.Position = Vector2.new(barX, barY)
+                        healthBg.Visible = true
+                        healthFg.Size = Vector2.new(barWidth * healthPercent, barHeight)
+                        healthFg.Position = Vector2.new(barX, barY)
+                        healthFg.Color = Color3.fromRGB(255 * (1 - healthPercent), 255 * healthPercent, 0)
+                        healthFg.Visible = true
+                    else
+                        healthBg.Visible = false
+                        healthFg.Visible = false
+                    end
+                    
+                    if lineEnabled then
+                        line.From = Vector2.new(Camera.ViewportSize.X / 2, 0)
+                        line.To = Vector2.new(pos.X, pos.Y)
+                        line.Visible = true
+                        line.Color = themeColor
+                    else
+                        line.Visible = false
                     end
                 else
                     box.Visible = false
                     name.Visible = false
                     dist.Visible = false
-                end
-
-                if healthEnabled and humanoid then
-                    local healthPercent = humanoid.Health / humanoid.MaxHealth
-                    local barWidth = width * 0.8
-                    local barHeight = 4
-                    local barX = pos.X - barWidth/2
-                    local barY = top.Y - 20
-
-                    healthBg.Size = Vector2.new(barWidth, barHeight)
-                    healthBg.Position = Vector2.new(barX, barY)
-                    healthBg.Visible = true
-
-                    healthFg.Size = Vector2.new(barWidth * healthPercent, barHeight)
-                    healthFg.Position = Vector2.new(barX, barY)
-                    healthFg.Color = Color3.fromRGB(255 * (1 - healthPercent), 255 * healthPercent, 0)
-                    healthFg.Visible = true
-                else
+                    line.Visible = false
                     healthBg.Visible = false
                     healthFg.Visible = false
                 end
-
-                if lineEnabled then
-                    line.From = Vector2.new(Camera.ViewportSize.X/2, 0)
-                    line.To = Vector2.new(pos.X, pos.Y)
-                    line.Visible = true
-                else
-                    line.Visible = false
-                end
-            else
-                box.Visible = false
-                name.Visible = false
-                dist.Visible = false
-                line.Visible = false
-                healthBg.Visible = false
-                healthFg.Visible = false
             end
         end
-    end
-    
-    -- ESP Skeleton
-    if skeletonEnabled then
-        for player, lines in pairs(SkeletonESP) do
-            updateSkeleton(player, lines)
-        end
-    else
-        for _, lines in pairs(SkeletonESP) do
-            for _, lineData in pairs(lines) do
-                lineData[1].Visible = false
+        
+        if skeletonEnabled then
+            for player, lines in pairs(SkeletonESP) do updateSkeleton(player, lines) end
+        else
+            for _, lines in pairs(SkeletonESP) do
+                for _, lineData in pairs(lines) do lineData[1].Visible = false end
             end
         end
-    end
-end)
-
--- Inisialisasi player
-for _, p in pairs(Players:GetPlayers()) do
-    createESP(p)
-    createSkeleton(p)
-end
-
-Players.PlayerAdded:Connect(function(p)
-    createESP(p)
-    createSkeleton(p)
-end)
-
--- ================== FUNGSI FLY ==================
-local function startFly()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-
-    bv = Instance.new("BodyVelocity")
-    bv.MaxForce = Vector3.new(9e9,9e9,9e9)
-    bv.Parent = hrp
-
-    bg = Instance.new("BodyGyro")
-    bg.MaxTorque = Vector3.new(9e9,9e9,9e9)
-    bg.Parent = hrp
-
-    RunService.RenderStepped:Connect(function()
-        if flyEnabled and bv and bg then
-            bg.CFrame = Camera.CFrame
-            bv.Velocity = Camera.CFrame.LookVector * flySpeed
-        end
-    end)
-end
-
-local function stopFly()
-    if bv then bv:Destroy() bv = nil end
-    if bg then bg:Destroy() bg = nil end
-end
-
--- ================== FUNGSI NOCLIP ==================
-RunService.Stepped:Connect(function()
-    if noclipEnabled and LocalPlayer.Character then
-        for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.CanCollide = false
-            end
-        end
-    end
-end)
-
--- ================== GUI KEREN ==================
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = game.CoreGui
-ScreenGui.Name = "PutzzdevHub"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.DisplayOrder = 100
-
--- Main frame
-local mainFrame = Instance.new("Frame")
-mainFrame.Parent = ScreenGui
-mainFrame.Size = UDim2.new(0, 350, 0, 480)
-mainFrame.Position = UDim2.new(0.5, -175, 0.5, -240)
-mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-mainFrame.BackgroundTransparency = 0.1
-mainFrame.BorderSizePixel = 0
-mainFrame.Active = true
-mainFrame.Draggable = true
-
-local corner = Instance.new("UICorner")
-corner.Parent = mainFrame
-corner.CornerRadius = UDim.new(0, 16)
-
--- Gradient
-local gradient = Instance.new("UIGradient")
-gradient.Parent = mainFrame
-gradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 25, 35)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 35, 45))
-})
-gradient.Rotation = 45
-
--- Header
-local header = Instance.new("Frame")
-header.Parent = mainFrame
-header.Size = UDim2.new(1, 0, 0, 55)
-header.BackgroundTransparency = 1
-
-local title = Instance.new("TextLabel")
-title.Parent = header
-title.Size = UDim2.new(1, 0, 1, 0)
-title.BackgroundTransparency = 1
-title.Text = "PUTZZDEV-HUB"
-title.TextColor3 = Color3.fromRGB(0, 200, 255)
-title.Font = Enum.Font.GothamBlack
-title.TextSize = 28
-title.TextStrokeTransparency = 0.5
-
--- Tab bar
-local tabBar = Instance.new("Frame")
-tabBar.Parent = mainFrame
-tabBar.Size = UDim2.new(1, 0, 0, 45)
-tabBar.Position = UDim2.new(0, 0, 0, 55)
-tabBar.BackgroundTransparency = 1
-
-local tabs = {}
-local contents = {}
-
-local function createTab(name, icon, idx)
-    local btn = Instance.new("TextButton")
-    btn.Parent = tabBar
-    btn.Size = UDim2.new(0.25, 0, 1, 0)
-    btn.Position = UDim2.new((idx-1)*0.25, 0, 0, 0)
-    btn.BackgroundTransparency = 1
-    btn.Text = icon.." "..name
-    btn.TextColor3 = Color3.fromRGB(180, 180, 180)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 15
-
-    local content = Instance.new("ScrollingFrame")
-    content.Parent = mainFrame
-    content.Size = UDim2.new(1, -10, 1, -110)
-    content.Position = UDim2.new(0, 5, 0, 105)
-    content.BackgroundTransparency = 1
-    content.BorderSizePixel = 0
-    content.ScrollBarThickness = 5
-    content.CanvasSize = UDim2.new(0, 0, 0, 0)
-    content.Visible = false
-
-    local layout = Instance.new("UIListLayout")
-    layout.Parent = content
-    layout.Padding = UDim.new(0, 8)
-    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-
-    table.insert(tabs, btn)
-    table.insert(contents, content)
-
-    btn.MouseButton1Click:Connect(function()
-        for i, b in ipairs(tabs) do
-            b.TextColor3 = Color3.fromRGB(180, 180, 180)
-            contents[i].Visible = false
-        end
-        btn.TextColor3 = Color3.fromRGB(0, 200, 255)
-        content.Visible = true
     end)
     
-    return content
-end
-
--- Buat tabs
-local tabMain = createTab("MAIN", "🏠", 1)
-local tabESP = createTab("ESP", "👁️", 2)
-local tabMove = createTab("MOVE", "🏃", 3)
-local tabMisc = createTab("MISC", "⚙️", 4)
-
--- Fungsi buat button
-local function createButton(parent, text, callback)
-    local frame = Instance.new("Frame")
-    frame.Parent = parent
-    frame.Size = UDim2.new(0.9, 0, 0, 45)
-    frame.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-    frame.BorderSizePixel = 0
-
-    local corner = Instance.new("UICorner")
-    corner.Parent = frame
-    corner.CornerRadius = UDim.new(0, 8)
-
-    local btn = Instance.new("TextButton")
-    btn.Parent = frame
-    btn.Size = UDim2.new(1, 0, 1, 0)
-    btn.BackgroundTransparency = 1
-    btn.Text = text
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 16
-
-    btn.MouseButton1Click:Connect(callback)
-    return frame
-end
-
--- Fungsi buat toggle
-local function createToggle(parent, text, default, callback)
-    local frame = Instance.new("Frame")
-    frame.Parent = parent
-    frame.Size = UDim2.new(0.9, 0, 0, 45)
-    frame.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-    frame.BorderSizePixel = 0
-
-    local corner = Instance.new("UICorner")
-    corner.Parent = frame
-    corner.CornerRadius = UDim.new(0, 8)
-
-    local label = Instance.new("TextLabel")
-    label.Parent = frame
-    label.Size = UDim2.new(0.6, 0, 1, 0)
-    label.Position = UDim2.new(0.05, 0, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = Color3.new(1, 1, 1)
-    label.Font = Enum.Font.Gotham
-    label.TextSize = 16
-    label.TextXAlignment = Enum.TextXAlignment.Left
-
-    local switch = Instance.new("Frame")
-    switch.Parent = frame
-    switch.Size = UDim2.new(0, 46, 0, 24)
-    switch.Position = UDim2.new(0.8, 0, 0.5, -12)
-    switch.BackgroundColor3 = default and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(100, 100, 100)
-    switch.BorderSizePixel = 0
-
-    local switchCorner = Instance.new("UICorner")
-    switchCorner.Parent = switch
-    switchCorner.CornerRadius = UDim.new(0, 12)
-
-    local circle = Instance.new("Frame")
-    circle.Parent = switch
-    circle.Size = UDim2.new(0, 20, 0, 20)
-    circle.Position = default and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0.05, 0, 0.5, -10)
-    circle.BackgroundColor3 = Color3.new(1, 1, 1)
-    circle.BorderSizePixel = 0
-
-    local circleCorner = Instance.new("UICorner")
-    circleCorner.Parent = circle
-    circleCorner.CornerRadius = UDim.new(1, 0)
-
-    local state = default
-    local click = Instance.new("TextButton")
-    click.Parent = frame
-    click.Size = UDim2.new(1, 0, 1, 0)
-    click.BackgroundTransparency = 1
-    click.Text = ""
-
-    click.MouseButton1Click:Connect(function()
-        state = not state
-        TweenService:Create(switch, TweenInfo.new(0.2), {BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(100, 100, 100)}):Play()
-        TweenService:Create(circle, TweenInfo.new(0.2), {Position = state and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0.05, 0, 0.5, -10)}):Play()
-        callback(state)
-    end)
-    
-    return frame
-end
-
--- ===== TAB MAIN =====
-createToggle(tabMain, "Fly", false, function(s)
-    flyEnabled = s
-    if s then startFly() else stopFly() end
-end)
-
-createToggle(tabMain, "Speed", false, function(s)
-    speedEnabled = s
-    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if hum then
-        hum.WalkSpeed = s and fastSpeed or normalSpeed
-    end
-end)
-
-createToggle(tabMain, "NoClip", false, function(s)
-    noclipEnabled = s
-end)
-
-createToggle(tabMain, "Invisible", false, function(s)
-    invisibleEnabled = s
-    setInvisible(s)
-end)
-
--- ===== TAB ESP =====
-createToggle(tabESP, "ESP Player", false, function(s) espEnabled = s end)
-createToggle(tabESP, "ESP Line", false, function(s) lineEnabled = s end)
-createToggle(tabESP, "Health Bar", false, function(s) healthEnabled = s end)
-createToggle(tabESP, "ESP Skeleton", false, function(s) skeletonEnabled = s end)
-
--- ===== TAB MOVE =====
-createButton(tabMove, "⬆ Naik (Fly)", function()
-    if flyEnabled then
-        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then hrp.Velocity = hrp.Velocity + Vector3.new(0, 50, 0) end
-    end
-end)
-
-createButton(tabMove, "⬇ Turun (Fly)", function()
-    if flyEnabled then
-        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then hrp.Velocity = hrp.Velocity - Vector3.new(0, 50, 0) end
-    end
-end)
-
--- ===== TAB MISC =====
-createButton(tabMisc, "🔄 Refresh ESP", function()
-    for p, _ in pairs(ESPTable) do ESPTable[p] = nil end
-    for p, _ in pairs(SkeletonESP) do SkeletonESP[p] = nil end
+    -- Inisialisasi ESP
     for _, p in pairs(Players:GetPlayers()) do
         createESP(p)
         createSkeleton(p)
     end
-end)
-
-createButton(tabMisc, "📋 Copy Discord", function()
-    if setclipboard then
-        setclipboard("discord.gg/putzzhub")
+    
+    Players.PlayerAdded:Connect(function(p)
+        createESP(p)
+        createSkeleton(p)
+    end)
+    
+    Players.PlayerRemoving:Connect(function(player)
+        if ESPTable[player] then
+            for _, drawing in pairs(ESPTable[player]) do
+                pcall(function() if drawing and drawing.Remove then drawing:Remove() end end)
+            end
+            ESPTable[player] = nil
+        end
+        if SkeletonESP[player] then
+            for _, lineData in pairs(SkeletonESP[player]) do
+                pcall(function() if lineData[1] and lineData[1].Remove then lineData[1]:Remove() end end)
+            end
+            SkeletonESP[player] = nil
+        end
+    end)
+    
+    -- Cleanup ESP
+    task.spawn(function()
+        while task.wait(30) do
+            pcall(function()
+                for player, drawings in pairs(ESPTable) do
+                    if not player or not player.Parent then
+                        for _, drawing in pairs(drawings) do
+                            if drawing and drawing.Remove then drawing:Remove() end
+                        end
+                        ESPTable[player] = nil
+                    end
+                end
+                for player, lines in pairs(SkeletonESP) do
+                    if not player or not player.Parent then
+                        for _, lineData in pairs(lines) do
+                            if lineData[1] and lineData[1].Remove then lineData[1]:Remove() end
+                        end
+                        SkeletonESP[player] = nil
+                    end
+                end
+            end)
+        end
+    end)
+    
+    -- ================== FUNGSI FLY ==================
+    local function startFly()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        bv.Parent = hrp
+        bg = Instance.new("BodyGyro")
+        bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+        bg.Parent = hrp
+        RunService.RenderStepped:Connect(function()
+            if flyEnabled and bv and bg then
+                bg.CFrame = Camera.CFrame
+                bv.Velocity = Camera.CFrame.LookVector * flySpeed
+            end
+        end)
     end
-end)
-
--- Set canvas size
-local function updateCanvas()
-    for _, content in pairs(contents) do
+    
+    local function stopFly()
+        if bv then bv:Destroy() bv = nil end
+        if bg then bg:Destroy() bg = nil end
+    end
+    
+    -- ================== FUNGSI NOCLIP ==================
+    RunService.Stepped:Connect(function()
+        if noclipEnabled and LocalPlayer.Character then
+            for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+                if v:IsA("BasePart") then v.CanCollide = false end
+            end
+        end
+    end)
+    
+    -- ================== GUI UTAMA CLEAN EDITION ==================
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Parent = game.CoreGui
+    ScreenGui.Name = "DripClient"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.DisplayOrder = 100
+    
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Parent = ScreenGui
+    mainFrame.Size = UDim2.new(0, 400, 0, 550)
+    mainFrame.Position = UDim2.new(0.5, -200, 0.5, -275)
+    mainFrame.BackgroundColor3 = darkPurple
+    mainFrame.BackgroundTransparency = 0.05
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.Parent = mainFrame
+    mainCorner.CornerRadius = UDim.new(0, 24)
+    
+    -- Glow Effect
+    local glowBg = Instance.new("ImageLabel")
+    glowBg.Parent = mainFrame
+    glowBg.Size = UDim2.new(1.1, 0, 1.1, 0)
+    glowBg.Position = UDim2.new(-0.05, 0, -0.05, 0)
+    glowBg.BackgroundTransparency = 1
+    glowBg.Image = "rbxassetid://6014261993"
+    glowBg.ImageColor3 = themeColor
+    glowBg.ImageTransparency = 0.7
+    glowBg.ScaleType = Enum.ScaleType.Slice
+    glowBg.SliceCenter = Rect.new(10, 10, 118, 118)
+    glowBg.ZIndex = 0
+    
+    -- Border Premium Ungu
+    local premiumBorder = Instance.new("Frame")
+    premiumBorder.Parent = mainFrame
+    premiumBorder.Size = UDim2.new(1, 0, 1, 0)
+    premiumBorder.BackgroundTransparency = 1
+    premiumBorder.BorderSizePixel = 3
+    premiumBorder.BorderColor3 = themeColor
+    
+    local borderCorner = Instance.new("UICorner")
+    borderCorner.Parent = premiumBorder
+    borderCorner.CornerRadius = UDim.new(0, 24)
+    
+    -- Header (tanpa timer)
+    local header = Instance.new("Frame")
+    header.Parent = mainFrame
+    header.Size = UDim2.new(1, 0, 0, 70)
+    header.Position = UDim2.new(0, 0, 0, 0)
+    header.BackgroundColor3 = themeColor
+    header.BackgroundTransparency = 0.15
+    header.BorderSizePixel = 0
+    
+    local headerCorner = Instance.new("UICorner")
+    headerCorner.Parent = header
+    headerCorner.CornerRadius = UDim.new(0, 24)
+    
+    local headerGradient = Instance.new("UIGradient")
+    headerGradient.Parent = header
+    headerGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, themeColor),
+        ColorSequenceKeypoint.new(1, darkPurple)
+    })
+    headerGradient.Rotation = 90
+    
+    -- Title
+    local title = Instance.new("TextLabel")
+    title.Parent = header
+    title.Size = UDim2.new(1, 0, 0.6, 0)
+    title.Position = UDim2.new(0, 0, 0, 15)
+    title.BackgroundTransparency = 1
+    title.Text = "DRIP CLIENT"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.Font = Enum.Font.GothamBlack
+    title.TextSize = 26
+    title.TextXAlignment = Enum.TextXAlignment.Center
+    
+    -- Subtitle
+    local subtitle = Instance.new("TextLabel")
+    subtitle.Parent = header
+    subtitle.Size = UDim2.new(1, 0, 0.3, 0)
+    subtitle.Position = UDim2.new(0, 0, 0, 48)
+    subtitle.BackgroundTransparency = 1
+    subtitle.Text = "DRIP VIP"
+    subtitle.TextColor3 = themeColor
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.TextSize = 11
+    subtitle.TextXAlignment = Enum.TextXAlignment.Center
+    
+    -- Tab bar
+    local tabBar = Instance.new("Frame")
+    tabBar.Parent = mainFrame
+    tabBar.Size = UDim2.new(0.95, 0, 0, 42)
+    tabBar.Position = UDim2.new(0.025, 0, 0.13, 0)
+    tabBar.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    tabBar.BackgroundTransparency = 0.3
+    tabBar.BorderSizePixel = 0
+    
+    local tabBarCorner = Instance.new("UICorner")
+    tabBarCorner.Parent = tabBar
+    tabBarCorner.CornerRadius = UDim.new(0, 10)
+    
+    local tabs = {}
+    local contents = {}
+    
+    local function createTab(name, icon, idx)
+        local btn = Instance.new("TextButton")
+        btn.Parent = tabBar
+        btn.Size = UDim2.new(0.2, -2, 1, -6)
+        btn.Position = UDim2.new((idx-1)*0.2, 5, 0, 3)
+        btn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        btn.BackgroundTransparency = 0.5
+        btn.Text = icon .. " " .. name
+        btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 12
+        
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.Parent = btn
+        btnCorner.CornerRadius = UDim.new(0, 8)
+        
+        -- SCROLLING FRAME
+        local content = Instance.new("ScrollingFrame")
+        content.Parent = mainFrame
+        content.Size = UDim2.new(0.94, 0, 1, -0.28)
+        content.Position = UDim2.new(0.03, 0, 0.2, 0)
+        content.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+        content.BackgroundTransparency = 0.4
+        content.BorderSizePixel = 0
+        content.ScrollBarThickness = 8
+        content.ScrollBarImageColor3 = themeColor
+        content.CanvasSize = UDim2.new(0, 0, 0, 0)
+        content.Visible = false
+        content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        content.ScrollingDirection = Enum.ScrollingDirection.Y
+        content.ElasticBehavior = Enum.ElasticBehavior.Never
+        content.VerticalScrollBarPosition = Enum.VerticalScrollBarPosition.Right
+        
+        local contentCorner = Instance.new("UICorner")
+        contentCorner.Parent = content
+        contentCorner.CornerRadius = UDim.new(0, 12)
+        
+        local layout = Instance.new("UIListLayout")
+        layout.Parent = content
+        layout.Padding = UDim.new(0, 10)
+        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        
+        table.insert(tabs, btn)
+        table.insert(contents, content)
+        
+        btn.MouseButton1Click:Connect(function()
+            for i, b in ipairs(tabs) do
+                b.TextColor3 = Color3.fromRGB(200, 200, 200)
+                b.BackgroundTransparency = 0.5
+                contents[i].Visible = false
+            end
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            btn.BackgroundTransparency = 0.2
+            content.Visible = true
+            
+            -- Update canvas size
+            task.wait(0.05)
+            local height = 0
+            for _, child in pairs(content:GetChildren()) do
+                if child:IsA("Frame") then
+                    height = height + child.Size.Y.Offset + 10
+                end
+            end
+            content.CanvasSize = UDim2.new(0, 0, 0, height + 40)
+        end)
+        
+        return content
+    end
+    
+    -- 5 TAB
+    local tabMain = createTab("MAIN", "▸", 1)
+    local tabESP = createTab("ESP", "▸", 2)
+    local tabUtility = createTab("UTILITY", "▸", 3)
+    local tabColor = createTab("COLOR", "▸", 4)
+    local tabAbout = createTab("ABOUT", "▸", 5)
+    
+    -- Button Style
+    local function createButton(parent, text, callback)
+        local frame = Instance.new("Frame")
+        frame.Parent = parent
+        frame.Size = UDim2.new(0.95, 0, 0, 44)
+        frame.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+        frame.BackgroundTransparency = 0.2
+        frame.BorderSizePixel = 0
+        
+        local corner = Instance.new("UICorner")
+        corner.Parent = frame
+        corner.CornerRadius = UDim.new(0, 10)
+        
+        local btn = Instance.new("TextButton")
+        btn.Parent = frame
+        btn.Size = UDim2.new(1, 0, 1, 0)
+        btn.BackgroundTransparency = 1
+        btn.Text = text
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 14
+        
+        btn.MouseButton1Click:Connect(callback)
+        return frame
+    end
+    
+    -- Toggle Style
+    local function createToggle(parent, text, default, callback)
+        local frame = Instance.new("Frame")
+        frame.Parent = parent
+        frame.Size = UDim2.new(0.95, 0, 0, 44)
+        frame.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+        frame.BackgroundTransparency = 0.2
+        frame.BorderSizePixel = 0
+        
+        local corner = Instance.new("UICorner")
+        corner.Parent = frame
+        corner.CornerRadius = UDim.new(0, 10)
+        
+        local label = Instance.new("TextLabel")
+        label.Parent = frame
+        label.Size = UDim2.new(0.65, 0, 1, 0)
+        label.Position = UDim2.new(0.05, 0, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Text = text
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.Font = Enum.Font.Gotham
+        label.TextSize = 14
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        
+        local switch = Instance.new("Frame")
+        switch.Parent = frame
+        switch.Size = UDim2.new(0, 48, 0, 24)
+        switch.Position = UDim2.new(0.82, 0, 0.5, -12)
+        switch.BackgroundColor3 = default and themeColor or Color3.fromRGB(80, 80, 90)
+        switch.BorderSizePixel = 0
+        
+        local switchCorner = Instance.new("UICorner")
+        switchCorner.Parent = switch
+        switchCorner.CornerRadius = UDim.new(0, 12)
+        
+        local circle = Instance.new("Frame")
+        circle.Parent = switch
+        circle.Size = UDim2.new(0, 20, 0, 20)
+        circle.Position = default and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0.05, 0, 0.5, -10)
+        circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        circle.BorderSizePixel = 0
+        
+        local circleCorner = Instance.new("UICorner")
+        circleCorner.Parent = circle
+        circleCorner.CornerRadius = UDim.new(1, 0)
+        
+        local state = default
+        local click = Instance.new("TextButton")
+        click.Parent = frame
+        click.Size = UDim2.new(1, 0, 1, 0)
+        click.BackgroundTransparency = 1
+        click.Text = ""
+        
+        click.MouseButton1Click:Connect(function()
+            state = not state
+            TweenService:Create(switch, TweenInfo.new(0.2), {BackgroundColor3 = state and themeColor or Color3.fromRGB(80, 80, 90)}):Play()
+            TweenService:Create(circle, TweenInfo.new(0.2), {Position = state and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0.05, 0, 0.5, -10)}):Play()
+            callback(state)
+        end)
+        
+        return frame
+    end
+    
+    -- TextBox Style
+    local function createTextBox(parent, placeholder, callback)
+        local frame = Instance.new("Frame")
+        frame.Parent = parent
+        frame.Size = UDim2.new(0.95, 0, 0, 44)
+        frame.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+        frame.BackgroundTransparency = 0.2
+        frame.BorderSizePixel = 0
+        
+        local corner = Instance.new("UICorner")
+        corner.Parent = frame
+        corner.CornerRadius = UDim.new(0, 10)
+        
+        local textBox = Instance.new("TextBox")
+        textBox.Parent = frame
+        textBox.Size = UDim2.new(1, -10, 1, -10)
+        textBox.Position = UDim2.new(0, 5, 0, 5)
+        textBox.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+        textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        textBox.PlaceholderText = placeholder
+        textBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+        textBox.Font = Enum.Font.Gotham
+        textBox.TextSize = 14
+        textBox.ClearTextOnFocus = false
+        
+        local boxCorner = Instance.new("UICorner")
+        boxCorner.Parent = textBox
+        boxCorner.CornerRadius = UDim.new(0, 8)
+        
+        textBox.FocusLost:Connect(function(enterPressed)
+            if enterPressed and textBox.Text ~= "" then
+                callback(textBox.Text)
+                textBox.Text = ""
+            end
+        end)
+        
+        return frame
+    end
+    
+    -- ===== TAB MAIN (Tanpa Aimbot) =====
+    createToggle(tabMain, "Fly", false, function(s)
+        flyEnabled = s
+        if s then startFly() else stopFly() end
+    end)
+    
+    createToggle(tabMain, "Speed Boost", false, function(s)
+        speedEnabled = s
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.WalkSpeed = s and fastSpeed or normalSpeed end
+    end)
+    
+    createToggle(tabMain, "NoClip", false, function(s)
+        noclipEnabled = s
+    end)
+    
+    createTextBox(tabMain, "Masukkan username player...", function(username)
+        teleportToPlayer(username)
+    end)
+    
+    createToggle(tabMain, "Infinity Jump", false, function(s)
+        infinityJumpEnabled = s
+    end)
+    
+    -- ===== TAB ESP =====
+    createToggle(tabESP, "ESP Box", false, function(s) espEnabled = s end)
+    createToggle(tabESP, "ESP Line", false, function(s) lineEnabled = s end)
+    createToggle(tabESP, "Health Bar", false, function(s) healthEnabled = s end)
+    createToggle(tabESP, "ESP Skeleton", false, function(s) skeletonEnabled = s end)
+    
+    -- ===== TAB UTILITY =====
+    createToggle(tabUtility, "God Mode", false, function(s)
+        antiDamageEnabled = s
+        if s then
+            setupAntiDamage()
+            showNotification("GOD MODE AKTIF", "Anti one-hit kill!", 1.5, Color3.fromRGB(0, 255, 0))
+        else
+            if antiDamageHeartbeat then antiDamageHeartbeat:Disconnect() end
+            if antiDamageConnection then antiDamageConnection:Disconnect() end
+            antiDamageThread = nil
+            showNotification("GOD MODE OFF", "Proteksi dimatikan", 1.5, Color3.fromRGB(255, 0, 0))
+        end
+    end)
+    
+    createToggle(tabUtility, "Spin Muter", false, function(s)
+        toggleSpin(s)
+    end)
+    
+    createButton(tabUtility, "Ganti Arah Spin", function()
+        toggleSpinDirection()
+    end)
+    
+    createToggle(tabUtility, "Invisible Mode", false, function(s)
+        toggleInvisible(s)
+    end)
+    
+    -- Update karakter untuk invisible
+    LocalPlayer.CharacterAdded:Connect(function()
+        task.wait(1)
+        updateInvisibleData()
+        if invisibleEnabled then toggleInvisible(true) end
+    end)
+    
+    -- ===== TAB COLOR =====
+    local function changeTheme(newColor)
+        themeColor = newColor
+        premiumBorder.BorderColor3 = themeColor
+        for _, content in pairs(contents) do
+            content.ScrollBarImageColor3 = themeColor
+        end
+        -- Update ESP warna
+        for player, esp in pairs(ESPTable) do
+            if esp and esp[1] then esp[1].Color = themeColor end
+            if esp and esp[4] then esp[4].Color = themeColor end
+        end
+        for player, lines in pairs(SkeletonESP) do
+            for _, lineData in pairs(lines) do
+                if lineData[1] then lineData[1].Color = themeColor end
+            end
+        end
+    end
+    
+    createButton(tabColor, "Ungu (Default)", function()
+        changeTheme(Color3.fromRGB(156, 39, 176))
+    end)
+    
+    createButton(tabColor, "Pink", function()
+        changeTheme(Color3.fromRGB(255, 105, 180))
+    end)
+    
+    createButton(tabColor, "Merah", function()
+        changeTheme(Color3.fromRGB(255, 0, 0))
+    end)
+    
+    createButton(tabColor, "Hijau", function()
+        changeTheme(Color3.fromRGB(0, 255, 0))
+    end)
+    
+    createButton(tabColor, "Biru", function()
+        changeTheme(Color3.fromRGB(0, 0, 255))
+    end)
+    
+    createButton(tabColor, "Kuning", function()
+        changeTheme(Color3.fromRGB(255, 255, 0))
+    end)
+    
+    createButton(tabColor, "Orange", function()
+        changeTheme(Color3.fromRGB(255, 165, 0))
+    end)
+    
+    createButton(tabColor, "Cyan", function()
+        changeTheme(Color3.fromRGB(0, 255, 255))
+    end)
+    
+    -- ===== TAB ABOUT =====
+    local aboutFrame = Instance.new("Frame")
+    aboutFrame.Parent = tabAbout
+    aboutFrame.Size = UDim2.new(0.95, 0, 0, 150)
+    aboutFrame.Position = UDim2.new(0.025, 0, 0, 10)
+    aboutFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    aboutFrame.BackgroundTransparency = 0.3
+    aboutFrame.BorderSizePixel = 0
+    
+    local aboutCorner = Instance.new("UICorner")
+    aboutCorner.Parent = aboutFrame
+    aboutCorner.CornerRadius = UDim.new(0, 12)
+    
+    local aboutTitle = Instance.new("TextLabel")
+    aboutTitle.Parent = aboutFrame
+    aboutTitle.Size = UDim2.new(1, 0, 0, 35)
+    aboutTitle.Position = UDim2.new(0, 0, 0, 10)
+    aboutTitle.BackgroundTransparency = 1
+    aboutTitle.Text = "DRIP CLIENT"
+    aboutTitle.TextColor3 = themeColor
+    aboutTitle.Font = Enum.Font.GothamBlack
+    aboutTitle.TextSize = 22
+    
+    local infoText = Instance.new("TextLabel")
+    infoText.Parent = aboutFrame
+    infoText.Size = UDim2.new(0.95, 0, 0, 90)
+    infoText.Position = UDim2.new(0.025, 0, 0, 55)
+    infoText.BackgroundTransparency = 1
+    infoText.Text = "DRIP CLIENT V7.0\n\n" ..
+                     "Developer: Putzzdev\n" ..
+                     "TikTok: @putzz_mvpp\n\n" ..
+                     "Kontak:\n" ..
+                     "088976255131\n" ..
+                     "\n" ..
+                     "\n\n" ..
+                     "Kontak: 088976255131"
+    infoText.TextColor3 = Color3.fromRGB(220, 220, 220)
+    infoText.Font = Enum.Font.Gotham
+    infoText.TextSize = 11
+    infoText.TextWrapped = true
+    infoText.TextXAlignment = Enum.TextXAlignment.Left
+    
+    createButton(tabAbout, "Copy TikTok", function()
+        if setclipboard then
+            setclipboard("@putzz_mvpp")
+            local notif = Instance.new("TextLabel")
+            notif.Parent = ScreenGui
+            notif.Size = UDim2.new(0, 180, 0, 30)
+            notif.Position = UDim2.new(0.5, -90, 0.8, 0)
+            notif.BackgroundColor3 = themeColor
+            notif.BackgroundTransparency = 0.2
+            notif.Text = "TikTok copied!"
+            notif.TextColor3 = Color3.fromRGB(255, 255, 255)
+            notif.Font = Enum.Font.GothamBold
+            notif.TextSize = 13
+            notif.BorderSizePixel = 0
+            
+            local notifCorner = Instance.new("UICorner")
+            notifCorner.Parent = notif
+            notifCorner.CornerRadius = UDim.new(0, 8)
+            
+            task.wait(2)
+            notif:Destroy()
+        end
+    end)
+    
+    -- Update canvas size
+    task.wait(0.1)
+    for i, content in pairs(contents) do
         local height = 0
         for _, child in pairs(content:GetChildren()) do
             if child:IsA("Frame") then
-                height = height + child.Size.Y.Offset + 8
+                height = height + child.Size.Y.Offset + 10
             end
         end
-        content.CanvasSize = UDim2.new(0, 0, 0, height)
+        content.CanvasSize = UDim2.new(0, 0, 0, height + 40)
     end
+    
+    -- Aktifkan tab pertama
+    tabs[1].TextColor3 = Color3.fromRGB(255, 255, 255)
+    tabs[1].BackgroundTransparency = 0.2
+    contents[1].Visible = true
+    
+    -- ================== TOMBOL MENU DRIP CLIENT ==================
+    local openBtn = Instance.new("TextButton")
+    openBtn.Parent = ScreenGui
+    openBtn.Size = UDim2.new(0, 120, 0, 45)
+    openBtn.Position = UDim2.new(0, 15, 0.5, -22.5)
+    openBtn.BackgroundColor3 = themeColor
+    openBtn.BackgroundTransparency = 0.2
+    openBtn.Text = "DRIP CLIENT"
+    openBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    openBtn.Font = Enum.Font.GothamBlack
+    openBtn.TextSize = 13
+    openBtn.ZIndex = 10
+    openBtn.Active = true
+    openBtn.Draggable = true
+    
+    local openBtnCorner = Instance.new("UICorner")
+    openBtnCorner.Parent = openBtn
+    openBtnCorner.CornerRadius = UDim.new(0, 14)
+    
+    local openBtnStroke = Instance.new("UIStroke")
+    openBtnStroke.Parent = openBtn
+    openBtnStroke.Color = Color3.fromRGB(255, 255, 255)
+    openBtnStroke.Thickness = 1.5
+    
+    -- Fungsi buka/tutup menu
+    local menuOpen = true
+    openBtn.MouseButton1Click:Connect(function()
+        menuOpen = not menuOpen
+        
+        if menuOpen then
+            mainFrame.Visible = true
+            TweenService:Create(mainFrame, TweenInfo.new(0.25), {
+                Position = UDim2.new(0.5, -200, 0.5, -275)
+            }):Play()
+        else
+            TweenService:Create(mainFrame, TweenInfo.new(0.25), {
+                Position = UDim2.new(0.5, -200, 1, 0)
+            }):Play()
+            task.wait(0.25)
+            mainFrame.Visible = false
+        end
+    end)
+    
+    -- Animasi hover
+    openBtn.MouseEnter:Connect(function()
+        TweenService:Create(openBtn, TweenInfo.new(0.2), {Size = UDim2.new(0, 130, 0, 48)}):Play()
+        openBtn.BackgroundTransparency = 0
+    end)
+    
+    openBtn.MouseLeave:Connect(function()
+        TweenService:Create(openBtn, TweenInfo.new(0.2), {Size = UDim2.new(0, 120, 0, 45)}):Play()
+        openBtn.BackgroundTransparency = 0.2
+    end)
+    
+    print("DRIP CLIENT V7.0")
 end
 
-wait(0.1)
-updateCanvas()
-
--- Aktifkan tab pertama
-tabs[1].TextColor3 = Color3.fromRGB(0, 200, 255)
-contents[1].Visible = true
-
--- Notifikasi
-local notifyFrame = Instance.new("Frame")
-notifyFrame.Parent = ScreenGui
-notifyFrame.Size = UDim2.new(0, 250, 0, 40)
-notifyFrame.Position = UDim2.new(0.5, -125, 0.9, 0)
-notifyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-notifyFrame.BackgroundTransparency = 0.1
-notifyFrame.BorderSizePixel = 0
-
-local notifyCorner = Instance.new("UICorner")
-notifyCorner.Parent = notifyFrame
-notifyCorner.CornerRadius = UDim.new(0, 8)
-
-local notifyText = Instance.new("TextLabel")
-notifyText.Parent = notifyFrame
-notifyText.Size = UDim2.new(1, 0, 1, 0)
-notifyText.BackgroundTransparency = 1
-notifyText.Text = "Putzzdev-HUB Loaded!"
-notifyText.TextColor3 = Color3.new(1, 1, 1)
-notifyText.Font = Enum.Font.Gotham
-notifyText.TextSize = 16
-
-TweenService:Create(notifyFrame, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -125, 0.8, 0)}):Play()
-wait(2)
-TweenService:Create(notifyFrame, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -125, 0.9, 0)}):Play()
-wait(0.3)
-notifyFrame:Destroy()
-
--- ================= OPEN / CLOSE BUTTON =================
-
-local openBtn = Instance.new("TextButton")
-openBtn.Parent = ScreenGui
-openBtn.Size = UDim2.new(0,55,0,55)
-openBtn.Position = UDim2.new(0,20,0.5,-27)
-openBtn.BackgroundColor3 = Color3.fromRGB(0,200,255)
-openBtn.Text = "P"
-openBtn.TextColor3 = Color3.new(1,1,1)
-openBtn.Font = Enum.Font.GothamBlack
-openBtn.TextSize = 22
-openBtn.AutoButtonColor = true
-openBtn.ZIndex = 10
-
-local corner = Instance.new("UICorner")
-corner.Parent = openBtn
-corner.CornerRadius = UDim.new(1,0)
-
-local stroke = Instance.new("UIStroke")
-stroke.Parent = openBtn
-stroke.Color = Color3.fromRGB(255,255,255)
-stroke.Thickness = 1.5
-
--- toggle
-local menuOpen = true
-
-openBtn.MouseButton1Click:Connect(function()
-
-	menuOpen = not menuOpen
-
-	if menuOpen then
-		mainFrame.Visible = true
-		TweenService:Create(mainFrame,TweenInfo.new(0.25),{
-			Position = UDim2.new(0.5,-175,0.5,-225)
-		}):Play()
-	else
-		TweenService:Create(mainFrame,TweenInfo.new(0.25),{
-			Position = UDim2.new(0.5,-175,1,0)
-		}):Play()
-
-		task.wait(0.25)
-		mainFrame.Visible = false
-	end
-
+-- ================== EVENT VERIFY BUTTON ==================
+VerifyBtn.MouseButton1Click:Connect(function()
+    local inputKey = KeyTextBox.Text:gsub("%s+", "")
+    if inputKey == "" then
+        StatusLabel.Text = "Masukkan Key Anda!"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+        StatusIcon.Text = "❌"
+        return
+    end
+    
+    showLoading(true)
+    StatusLabel.Text = "Memverifikasi Key (Firebase)..."
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    StatusIcon.Text = "⏳"
+    
+    local isValid, message = checkKeyExpiry(inputKey)
+    
+    showLoading(false)
+    
+    if isValid then
+        StatusLabel.Text = message
+        StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+        StatusIcon.Text = "✅"
+        
+        task.wait(1)
+        StatusLabel.Text = "Loading (3)..."
+        task.wait(1)
+        StatusLabel.Text = "Loading (2)..."
+        task.wait(1)
+        StatusLabel.Text = "Loading (1)..."
+        task.wait(1)
+        
+        pcall(loadMainScript)
+        
+    else
+        StatusLabel.Text = message
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+        StatusIcon.Text = "❌"
+        showNotification("GAGAL", message, 2, Color3.fromRGB(150, 0, 0))
+    end
 end)
 
-print("Putzzdev-HUB")
+KeyTextBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        VerifyBtn.MouseButton1Click:Fire()
+    end
+end)
+
+print("DRIP CLIENT V7.0 - Ready!")
